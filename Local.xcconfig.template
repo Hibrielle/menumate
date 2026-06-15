@@ -1,0 +1,6 @@
+// 本地签名配置（模板;make bootstrap 复制为 Local.xcconfig,已 gitignore）。
+// 留空 = ad-hoc 签名即可本地运行;填真实 Team 仅为正式分发签名做准备。
+// 数据在 ~/Library/Application Support/MenuMate,不依赖 App Group,无授权弹窗。
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM =

@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run MenuMateCore unit tests
+        run: swift test
+        working-directory: Core
+
+      - name: Validate project generation (project.yml)
+        run: |
+          brew install xcodegen
+          cp Local.xcconfig.template Local.xcconfig
+          xcodegen generate

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "name": "MenuMate Example Pack",
+  "author": "MenuMate",
+  "description": "参考扩展包:复制无扩展名文件名、统计所选大小、转换图片格式。可直接 fork 作为你自己扩展包的模板。",
+  "icon": "shippingbox",
+  "actions": [
+    {
+      "id": "copy-basename",
+      "title": "复制文件名(无扩展名)",
+      "icon": "doc.on.doc",
+      "script": "actions/copy-basename.zsh",
+      "targets": "files",
+      "placement": "topLevel"
+    },
+    {
+      "id": "total-size",
+      "title": "统计所选大小",
+      "icon": "sum",
+      "script": "actions/total-size.zsh",
+      "targets": "any",
+      "placement": "topLevel"
+    },
+    {
+      "id": "convert-image",
+      "title": "转换图片为…",
+      "icon": "photo",
+      "script": "actions/convert-image.zsh",
+      "targets": "files",
+      "utis": ["public.image"],
+      "placement": "submenu",
+      "variants": { "fixed": ["png", "jpeg", "tiff"] },
+      "timeoutSeconds": 120
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "ext.launchMenuMate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Launch MenuMate" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "启动 MenuMate" } }
+      }
+    },
+    "ext.loadingMenu" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading menu…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "菜单加载中…" } }
+      }
+    },
+    "ext.tooManyItems" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Too many items selected (>%lld). Select fewer." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选中项过多（>%lld），请减少选择" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

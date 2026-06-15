@@ -1,0 +1,6 @@
+     com.menumate.app.FinderExtension(1.0)	B92CB2AA-F8A4-4022-A60D-4D27C8541069	2026-06-11 15:22:49 +0000	/Users/developer/repo/menumate/build/Build/Products/Debug/MenuMate.app/Contents/PlugIns/FinderExtension.appex
+     com.shrek.newterminal.extension(5.0.2)	E8C71DAC-E346-4A57-9D62-F8389CFA7555	2026-05-28 15:14:45 +0000	/Applications/MouseBoost.app/Contents/PlugIns/MouseBoost Extension.appex
+     com.bot.pc.doubao.FinderSyncExtension(135.0.7049.72)	B22B6805-6B8D-4B23-BBAE-9326536C084A	2026-01-20 02:59:06 +0000	/Applications/Doubao.app/Contents/PlugIns/finder-ext.appex
+     com.volcengine.corplink.networkextension-wrapper.FinderSync(3.3.14)	A6BA9853-FC56-4C6C-B1E5-A5C78DE1DA54	2026-06-11 10:44:30 +0000	/Applications/CorpLink.app/Contents/Frameworks/CorplinkNe.app/Contents/PlugIns/CorpLink Finder Sync.appex
+-    com.microsoft.OneDrive.FinderSync(26.088.0510)	46667921-2FAA-44FE-9471-D304D5A303B1	2026-06-11 03:46:54 +0000	/Applications/OneDrive.app/Contents/PlugIns/FinderSync.appex
+ (5 plug-ins)
