@@ -19,6 +19,8 @@ final class AppState: ObservableObject {
     private var heartbeatCount: Int = 0
     /// 上次推送时间：snapshotRequest 节流，1s 内忽略重复请求
     private var lastPushTime: Date = .distantPast
+    /// 上次由本进程写盘后的 config.json mtime；心跳据此检测"外部进程(AI/CLI/手动)改了 config.json"→ 实时重载
+    private var lastConfigMTime: Date = .distantPast
 
     func start() {
         PresetSeeder.seedIfNeeded()      // 脚本/模板/数据目录落盘（Task 11 实现）
@@ -42,6 +44,7 @@ final class AppState: ObservableObject {
         }
         migratePresetRenames()
         pruneOrphanIcons()   // 清理上次会话遗留的孤儿图标
+        lastConfigMTime = configMTime()  // 基线;之后心跳检测外部改动(让 AI/CLI 直接改 config.json 即时生效)
 
         packManager.reload()             // 从 Packs/installed.json + config 重建已安装包列表
         startHeartbeat()
@@ -60,9 +63,27 @@ final class AppState: ObservableObject {
     func update(_ newConfig: MenuConfig) {
         config = newConfig
         try? store.save(newConfig)
+        lastConfigMTime = configMTime()   // 标记为本进程写入,避免心跳把自己的写当成外部改动而重载
         configError = nil
         pruneOrphanIcons()
         pushSnapshot()
+    }
+
+    /// 外部进程(AI / CLI / 手动)改了 config.json 时重读并广播,无需重启 App。
+    /// 解析失败(如写到一半)忽略,保留当前内存态,下个心跳再试。
+    func reloadFromDisk() {
+        guard let loaded = try? store.load() else { return }
+        config = loaded
+        configError = nil
+        lastConfigMTime = configMTime()
+        packManager.reload()
+        pruneOrphanIcons()
+        pushSnapshot()
+    }
+
+    private func configMTime() -> Date {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: store.fileURL.path)
+        return (attrs?[.modificationDate] as? Date) ?? .distantPast
     }
 
     /// 一次性正名:open-enclosing 从「前往所在目录」统一为「前往上一层级目录」(只在用户没自行改名时迁移)。
@@ -119,6 +140,8 @@ final class AppState: ObservableObject {
     private func heartbeatTick() {
         DistributedNotificationCenter.default().postNotificationName(
             .init(IPC.heartbeatNotification), object: nil, userInfo: nil, deliverImmediately: true)
+        // 外部进程改了 config.json(AI/CLI 直接操作数据源)→ 实时重载 + 重推快照,无需重启。
+        if configMTime() > lastConfigMTime { reloadFromDisk(); return }
         heartbeatCount += 1
         let snapshot = buildSnapshot()
         if snapshot != lastPushed || heartbeatCount >= 10 {
