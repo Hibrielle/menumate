@@ -62,6 +62,8 @@ struct PvEditor: View {
     @State private var appBundleID = ""
     @State private var utisText = ""
     @State private var targetChoice = 0          // 0 文件和文件夹 1 仅文件 2 仅文件夹 3 目录空白处
+    @State private var minSelText = ""           // 最少选中数（空=不限）
+    @State private var maxSelText = ""           // 最多选中数（空=不限）
     @State private var placementChoice = 0       // 0 菜单顶层 1 子菜单
     @State private var variantChoice = 0         // 0 无 1 固定列表 2 目录列举
     @State private var variantsFixed = ""
@@ -173,6 +175,17 @@ struct PvEditor: View {
                 PvField(String(localized: "editor.target")) {
                     targetPopup
                 }
+                // 选中数范围对「目录空白处」无意义(那里没有选中项),仅在针对选中项时显示。
+                if targetChoice != 3 {
+                    PvField(String(localized: "editor.selectionCount"), hint: String(localized: "editor.selectionCountHint")) {
+                        HStack(spacing: 8) {
+                            Text(String(localized: "editor.selMin")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
+                            selCountField($minSelText)
+                            Text(String(localized: "editor.selMax")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
+                            selCountField($maxSelText)
+                        }
+                    }
+                }
                 PvField(String(localized: "editor.restrictType"), hint: String(localized: "editor.restrictTypeHint")) {
                     VStack(alignment: .leading, spacing: 6) {
                         TypeCategoryChips(utisText: $utisText)
@@ -257,6 +270,20 @@ struct PvEditor: View {
         }
     }
 
+    // 小号数字输入框：空 = 不限。沿用 timeout 字段外观。
+    private func selCountField(_ binding: Binding<String>) -> some View {
+        TextField(String(localized: "editor.selAny"), text: binding)
+            .textFieldStyle(.plain)
+            .font(.system(size: 13))
+            .frame(width: 44)
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .background(MMColor.field)
+            .clipShape(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous)
+                .stroke(MMColor.border, lineWidth: kHairline))
+            .onChange(of: binding.wrappedValue) { _ in commit() }
+    }
+
     // MARK: 弹出选择(Menu 驱动真实交互,外观对照 MMPopup)
 
     private var targetPopup: some View {
@@ -313,6 +340,8 @@ struct PvEditor: View {
             kindChoice = 2; appBundleID = id
         }
         utisText = action.matching.utis.joined(separator: ", ")
+        minSelText = action.matching.minSelectionCount.map(String.init) ?? ""
+        maxSelText = action.matching.maxSelectionCount.map(String.init) ?? ""
         targetChoice = [TargetKind.any, .files, .folders, .container].firstIndex(of: action.matching.targets) ?? 0
         placementChoice = action.placement == .submenu ? 1 : 0
         switch action.variants {
@@ -334,6 +363,18 @@ struct PvEditor: View {
         saved.matching.utis = utisText.split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         saved.matching.targets = [TargetKind.any, .files, .folders, .container][targetChoice]
+        // 空/非正整数 = 不限;「目录空白处」无选中项,清空两者。
+        func parseCount(_ s: String) -> Int? {
+            guard let n = Int(s.trimmingCharacters(in: .whitespaces)), n > 0 else { return nil }
+            return n
+        }
+        if targetChoice == 3 {
+            saved.matching.minSelectionCount = nil
+            saved.matching.maxSelectionCount = nil
+        } else {
+            saved.matching.minSelectionCount = parseCount(minSelText)
+            saved.matching.maxSelectionCount = parseCount(maxSelText)
+        }
         saved.placement = placementChoice == 1 ? .submenu : .topLevel
         switch variantChoice {
         case 1:
