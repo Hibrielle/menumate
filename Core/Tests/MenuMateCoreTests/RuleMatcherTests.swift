@@ -49,6 +49,21 @@ final class RuleMatcherTests: XCTestCase {
         XCTAssertFalse(RuleMatcher.matches(rule: rule, context: .items([file, folder])))
     }
 
+    func testMinSelectionCount() {
+        // 仅多选：选 1 个隐藏，≥2 个出现
+        let rule = MatchRule(targets: .any, minSelectionCount: 2)
+        XCTAssertFalse(RuleMatcher.matches(rule: rule, context: .items([file])))
+        XCTAssertTrue(RuleMatcher.matches(rule: rule, context: .items([file, folder])))
+    }
+
+    func testMinAndMaxSelectionCountFormRange() {
+        // 恰好 2 个：min=2 且 max=2
+        let rule = MatchRule(targets: .any, maxSelectionCount: 2, minSelectionCount: 2)
+        XCTAssertFalse(RuleMatcher.matches(rule: rule, context: .items([file])))
+        XCTAssertTrue(RuleMatcher.matches(rule: rule, context: .items([file, folder])))
+        XCTAssertFalse(RuleMatcher.matches(rule: rule, context: .items([file, folder, dir])))
+    }
+
     func testVisibleActionsFiltersDisabledAndSorts() {
         let a = action(MatchRule(), enabled: true)
         let b = action(MatchRule(), enabled: false)

@@ -34,9 +34,12 @@ public enum VariantSource: Codable, Equatable, Sendable {
 public struct MatchRule: Codable, Equatable, Sendable {
     public var targets: TargetKind
     public var utis: [String]
-    public var maxSelectionCount: Int?
-    public init(targets: TargetKind = .any, utis: [String] = [], maxSelectionCount: Int? = nil) {
-        self.targets = targets; self.utis = utis; self.maxSelectionCount = maxSelectionCount
+    public var maxSelectionCount: Int?   // 选中数 > max 时隐藏（如「仅单选」用 1）
+    public var minSelectionCount: Int?   // 选中数 < min 时隐藏（如「仅多选」用 2）
+    public init(targets: TargetKind = .any, utis: [String] = [],
+                maxSelectionCount: Int? = nil, minSelectionCount: Int? = nil) {
+        self.targets = targets; self.utis = utis
+        self.maxSelectionCount = maxSelectionCount; self.minSelectionCount = minSelectionCount
     }
 }
 

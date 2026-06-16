@@ -20,6 +20,7 @@ public enum RuleMatcher {
         case .items(let urls):
             guard rule.targets != .container, !urls.isEmpty else { return false }
             if let max = rule.maxSelectionCount, urls.count > max { return false }
+            if let min = rule.minSelectionCount, urls.count < min { return false }
             return urls.allSatisfy { matches(rule: rule, url: $0) }
         }
     }
