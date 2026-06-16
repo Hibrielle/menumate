@@ -28,7 +28,6 @@ impossible:
 | Inject custom script actions | partial | ✓ script-first, fully configurable |
 | Toggle system Quick Actions / Services | ✗ | ✓ via the `pbs` domain |
 | Enable/disable third-party Finder extensions | ✗ | ✓ via `pluginkit` |
-| Clean up duplicate “Open With” entries | ✗ | ✓ via `lsregister -u` |
 | Install community packs (any git repo) | ✗ | ✓ see the [pack spec](docs/pack-spec.md) |
 
 **The core idea is script-first.** Even the built-ins are editable zsh scripts — a preset *is*
@@ -54,14 +53,6 @@ One screen shows your menu exactly as it appears, with a “simulate target” s
 much MenuMate can control them: **●** your own & pack actions (reorder, edit, toggle, delete),
 **◐** system Quick Actions & Services (hide), **○** third-party extensions (toggle).
 
-### Clean up “Open With” duplicates
-
-Spotlight-scan for apps registered from multiple disk locations and precisely unregister the
-stale copies with `lsregister -u` — without the `-kill` sledgehammer that breaks System
-Settings.
-
-<p align="center"><img src="docs/screenshots/open-with-en.png" width="620" alt="Open With cleanup"></p>
-
 ### Switch terminal / editor without editing scripts
 
 Pick your default terminal and editor in **General**; the “Open in Terminal / Editor” presets
@@ -82,20 +73,25 @@ need are requested **once** in onboarding.
 
 ---
 
-## Built-in presets (9 editable scripts)
+## Built-in presets (6 editable scripts)
 
-All use only built-in macOS CLIs, zero external dependencies. View/edit them under
+Deliberately lean — only universal, gap-filling actions that every Mac user benefits from,
+with zero external assumptions. All use built-in macOS CLIs. View/edit under
 **Settings › Context Menu**; restore factory defaults under **Settings › General**.
 
 | Script | Action | What it does |
 |--------|--------|--------------|
 | `copy-path.sh` | Copy Path | `pbcopy`, one path per line for multi-select |
 | `new-file.sh` | New File | submenu of your template folder; `cp` + auto-numbered renames |
-| `open-terminal.sh` | Open in Terminal | terminal chosen in General (`MENUMATE_TERMINAL`) |
-| `open-editor.sh` | Open in Editor | editor chosen in General (`MENUMATE_EDITOR`) |
-| `image-convert.sh` | Convert Image | submenu png/jpeg/heic/tiff via `sips`; images only |
 | `cut.sh` / `paste.sh` | Cut / Paste Here | move via a data-dir cutbuffer |
 | `open-parent.sh` / `open-enclosing.sh` | Go Up One Level | navigate up in the current Finder window — or in a browser's upload dialog via `⌘↑` |
+
+Specialized actions ship as **optional extension packs** (install via **Extension Packs ›
+Browse community packs**) — they double as real examples of the pack ecosystem:
+
+- **[Developer Pack](https://github.com/Hibrielle/menumate-dev-pack)** — Open in Terminal / Editor (honors your default terminal/editor).
+- **[Image Pack](https://github.com/Hibrielle/menumate-image-pack)** — Convert Image ▸ png/jpeg/heic/tiff.
+- **[Navigation Pack](https://github.com/Hibrielle/menumate-nav-pack)** — Go to Path… / Go to Clipboard Path (a Finder address bar).
 
 ---
 

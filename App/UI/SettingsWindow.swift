@@ -9,8 +9,8 @@ struct SettingsWindow: View {
                 .tabItem { Label(String(localized: "settings.tab.contextMenu"), systemImage: "line.3.horizontal") }
             ScreenPacks(packManager: AppState.shared.packManager)
                 .tabItem { Label(String(localized: "settings.tab.packs"), systemImage: "shippingbox") }
-            OpenWithTab()
-                .tabItem { Label(String(localized: "settings.tab.openWith"), systemImage: "square.stack") }
+            // 「打开方式」Tab 暂时屏蔽(意义不大);OpenWithTab/OpenWithCleaner 代码保留,需要时把这行恢复即可。
+            // OpenWithTab().tabItem { Label(String(localized: "settings.tab.openWith"), systemImage: "square.stack") }
             GeneralTab()
                 .tabItem { Label(String(localized: "settings.tab.general"), systemImage: "gearshape") }
         }
