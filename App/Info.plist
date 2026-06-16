@@ -24,6 +24,8 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>MenuMate 会在你启用的右键预设里控制 Finder，用于在当前窗口内导航（如「前往上一层级目录」「前往所在目录」）。</string>
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/Hibrielle/menumate/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
