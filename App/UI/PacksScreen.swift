@@ -13,8 +13,6 @@ import SwiftUI
 import AppKit
 import MenuMateCore
 
-private let kBrowseURL = "https://github.com/topics/menumate-pack"
-
 // MARK: - ScreenPacks(扩展包 Tab 主屏)
 
 struct ScreenPacks: View {
@@ -29,6 +27,8 @@ struct ScreenPacks: View {
 
     // Sheet 路由
     @State private var showImport = false
+    @State private var showDiscover = false
+    @State private var pendingImport: RepoToImport?
     @State private var updatingPack: InstalledPack?
     @State private var scriptViewer: ScriptViewerTarget?
 
@@ -56,6 +56,24 @@ struct ScreenPacks: View {
         .sheet(item: $scriptViewer) { target in
             ScriptViewerSheet(title: target.title, path: target.path, code: target.code) {
                 scriptViewer = nil
+            }
+        }
+        .sheet(isPresented: $showDiscover) {
+            DiscoverPacksSheet(
+                installedRepos: Set(packManager.packs.map { $0.repo.lowercased() }),
+                onImport: { repo in
+                    showDiscover = false
+                    // 顺序呈现两个 sheet:先关发现,再开导入(预填仓库,仍走完整审查)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        pendingImport = RepoToImport(repo: repo)
+                    }
+                },
+                onClose: { showDiscover = false })
+        }
+        .sheet(item: $pendingImport) { item in
+            PackImportSheet(packManager: packManager, initialRepo: item.repo) {
+                pendingImport = nil
+                packManager.reload()
             }
         }
     }
@@ -125,7 +143,7 @@ struct ScreenPacks: View {
     }
 
     private func browse() {
-        if let url = URL(string: kBrowseURL) { NSWorkspace.shared.open(url) }
+        showDiscover = true   // App 内发现社区包(扫描 menumate-pack topic),不再跳浏览器
     }
 
     private func openRepo(_ pack: InstalledPack) {
@@ -194,6 +212,11 @@ struct ScriptViewerTarget: Identifiable {
     let title: String
     let path: String
     let code: String
+}
+
+struct RepoToImport: Identifiable {
+    let id = UUID()
+    let repo: String
 }
 
 // MARK: - PacksHeader(顶部操作条)

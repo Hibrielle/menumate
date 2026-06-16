@@ -79,6 +79,13 @@ struct PackImportSheet: View {
     /// 完成或取消后关闭(由父视图把绑定置 false)。
     let onClose: () -> Void
 
+    /// initialRepo:从「发现社区包」点导入时预填仓库(用户仍需走完整审查流程)。
+    init(packManager: PackManager, initialRepo: String = "", onClose: @escaping () -> Void) {
+        self._packManager = ObservedObject(wrappedValue: packManager)
+        self.onClose = onClose
+        self._urlText = State(initialValue: initialRepo)
+    }
+
     enum Phase: Equatable {
         case url
         case cloning

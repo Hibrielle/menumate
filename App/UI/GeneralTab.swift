@@ -54,6 +54,8 @@ struct GeneralTab: View {
                                     .foregroundStyle(MMColor.label3)
                                     .lineLimit(1)
                                     .truncationMode(.middle)
+                                    .textSelection(.enabled)          // 可选中复制完整路径
+                                    .help(AppPaths.scriptsDirectory().path)  // 悬停看完整路径
                             }
                             Spacer(minLength: 0)
                             MMButton(String(localized: "general.openInFinder"), systemImage: "folder", size: .sm) {
