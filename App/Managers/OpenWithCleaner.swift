@@ -51,7 +51,7 @@ final class OpenWithCleaner: ObservableObject {
     ///   ① 声明了可打开文档(CFBundleDocumentTypes 非空)——后台 agent / 安装器 / 构建产物
     ///      不声明文档类型,永远不进「打开方式」,过滤掉(避免列出 logioptionsplus_agent 这类噪音);
     ///   ② 不是嵌套在别的 .app 内部的捆绑 helper。
-    private static func appearsInOpenWith(_ bundle: Bundle, at url: URL) -> Bool {
+    private nonisolated static func appearsInOpenWith(_ bundle: Bundle, at url: URL) -> Bool {
         let docTypes = bundle.infoDictionary?["CFBundleDocumentTypes"] as? [Any] ?? []
         guard !docTypes.isEmpty else { return false }
         if url.deletingLastPathComponent().path.contains(".app/") { return false }
