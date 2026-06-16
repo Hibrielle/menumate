@@ -67,7 +67,7 @@ final class ModelsTests: XCTestCase {
 
     func testDefaultSeedIsAllScriptPresetsWithRelativePaths() {
         let seed = MenuConfig.defaultSeed()
-        XCTAssertEqual(seed.actions.count, 9)
+        XCTAssertEqual(seed.actions.count, 6)
         XCTAssertTrue(seed.actions.allSatisfy { $0.isEnabled && $0.presetKey != nil })
         for action in seed.actions {
             guard case .runScript(let spec) = action.kind else {
@@ -125,8 +125,8 @@ final class ModelsTests: XCTestCase {
     func testDefaultSeedPresetKeyUniqueness() {
         let actions = MenuConfig.defaultSeed().actions
         let keys = actions.compactMap(\.presetKey)
-        XCTAssertEqual(keys.count, 9)
-        XCTAssertEqual(Set(keys).count, 9, "presetKeys must be unique")
+        XCTAssertEqual(keys.count, 6)
+        XCTAssertEqual(Set(keys).count, 6, "presetKeys must be unique")
     }
 
     /// sortOrders must be unique.

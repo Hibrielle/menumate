@@ -1,54 +1,86 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "preset.copyPath" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Path" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制路径" } }
+  "sourceLanguage": "en",
+  "strings": {
+    "preset.copyPath": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Path"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制路径"
+          }
+        }
       }
     },
-    "preset.newFile" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New File" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建文件" } }
+    "preset.newFile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New File"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建文件"
+          }
+        }
       }
     },
-    "preset.openTerminal" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open in Terminal" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在终端打开" } }
+    "preset.cut": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cut"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剪切"
+          }
+        }
       }
     },
-    "preset.openEditor" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open in Editor" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用编辑器打开" } }
+    "preset.pasteHere": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste Here"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴到此处"
+          }
+        }
       }
     },
-    "preset.convertImage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Convert Image" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "图片转换" } }
-      }
-    },
-    "preset.cut" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cut" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "剪切" } }
-      }
-    },
-    "preset.pasteHere" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste Here" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "粘贴到此处" } }
-      }
-    },
-    "preset.goUp" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Go Up One Level" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "前往上一层级目录" } }
+    "preset.goUp": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go Up One Level"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前往上一层级目录"
+          }
+        }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

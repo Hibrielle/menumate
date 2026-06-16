@@ -40,7 +40,7 @@ final class IPCTests: XCTestCase {
                                          variantListings: [newFileID: ["文本.txt", "Markdown.md"]])
         let decoded = try ExtensionSnapshot.decode(try snapshot.encodedString())
         XCTAssertEqual(decoded, snapshot)
-        XCTAssertEqual(decoded.config.actions.count, 9)
+        XCTAssertEqual(decoded.config.actions.count, 6)
         XCTAssertEqual(decoded.variantListings[newFileID], ["文本.txt", "Markdown.md"])
     }
 

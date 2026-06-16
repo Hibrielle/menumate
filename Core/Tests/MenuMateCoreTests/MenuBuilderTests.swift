@@ -32,10 +32,21 @@ final class MenuBuilderTests: XCTestCase {
         seed.actions.first { $0.presetKey == presetKey }!.title
     }
 
+    // 自建固定变体动作:测的是 MenuBuilder 的 .fixed 展开本身,不依赖某条具体出厂预设
+    // (内置预设已精简,不再含固定变体的「图片转换」——它已挪到 Image 扩展包)。
+    private func fixedVariantConfig(_ values: [String], title: String = "Convert") -> MenuConfig {
+        let action = MenuAction(
+            id: UUID(), title: title, icon: .symbol("photo"),
+            kind: .runScript(ScriptSpec(scriptPath: "x.sh")),
+            matching: MatchRule(targets: .files), placement: .topLevel,
+            variants: .fixed(values), isEnabled: true, sortOrder: 0)
+        return MenuConfig(schemaVersion: MenuConfig.currentSchemaVersion, actions: [action])
+    }
+
     func testFixedVariantsExpandToChildren() {
-        let seed = MenuConfig.defaultSeed()
-        let specs = MenuBuilder.build(input(config: seed, context: .items([file])))
-        let convert = specs.first { $0.title == title(seed, "image-convert") }
+        let config = fixedVariantConfig(["png", "jpeg", "heic", "tiff"])
+        let specs = MenuBuilder.build(input(config: config, context: .items([file])))
+        let convert = specs.first { $0.title == "Convert" }
         XCTAssertEqual(convert?.children.map(\.title), ["png", "jpeg", "heic", "tiff"])
         XCTAssertEqual(convert?.children.first?.request?.variant, "png")
         XCTAssertNil(convert?.request)   // 父节点不可点击
@@ -96,12 +107,9 @@ final class MenuBuilderTests: XCTestCase {
     }
 
     func testFixedEmptyVariantsHidesAction() {
-        var seed = MenuConfig.defaultSeed()
-        if let idx = seed.actions.firstIndex(where: { $0.presetKey == "image-convert" }) {
-            seed.actions[idx].variants = .fixed([])
-        }
-        let specs = MenuBuilder.build(input(config: seed, context: .items([file])))
-        XCTAssertFalse(specs.contains { $0.title == "图片转换" })
+        let config = fixedVariantConfig([])
+        let specs = MenuBuilder.build(input(config: config, context: .items([file])))
+        XCTAssertFalse(specs.contains { $0.title == "Convert" })
     }
 
     func testTemplateStoreFiltersSubdirectoriesAndCaps() throws {

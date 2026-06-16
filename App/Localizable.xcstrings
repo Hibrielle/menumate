@@ -886,13 +886,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Used by the \"Open in Terminal\" and \"Open in Editor\" presets; switching requires no script changes."
+            "value": "Used by actions that read MENUMATE_TERMINAL / MENUMATE_EDITOR (e.g. the Developer pack) — switch apps without editing scripts."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "供「在终端打开」「用编辑器打开」预设使用;切换无需改脚本。"
+            "value": "供读取 MENUMATE_TERMINAL / EDITOR 的动作(如 Developer 扩展包)使用;切换无需改脚本。"
           }
         }
       }
