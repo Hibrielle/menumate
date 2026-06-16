@@ -35,6 +35,9 @@ targets:
         # Sparkle 自动更新:appcast 由发布流程更新到仓库,公钥用你的 EdDSA 公钥替换。见 docs/RELEASING.md。
         SUFeedURL: https://raw.githubusercontent.com/Hibrielle/menumate/main/appcast.xml
         SUPublicEDKey: REPLACE_WITH_YOUR_SPARKLE_PUBLIC_KEY
+        # 正式签名发布 + 填好公钥前,关闭自动检查,避免开发版启动弹「无法检查更新」。
+        # 发布后改为 true(或删掉)即可恢复后台自动更新。手动「检查更新」始终可用。
+        SUEnableAutomaticChecks: false
         # 「前往上一层级目录 / 前往所在目录」等预设用 osascript 控制 Finder 做同窗导航；
         # 主 App 非沙盒，发 Apple Event 需声明此用途串，否则 macOS 自动化授权会被静默拒。
         NSAppleEventsUsageDescription: "MenuMate 会在你启用的右键预设里控制 Finder，用于在当前窗口内导航（如「前往上一层级目录」「前往所在目录」）。"
