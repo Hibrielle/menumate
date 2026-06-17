@@ -104,7 +104,7 @@ make run         # 构建并启动
 
 - [扩展包规范](docs/pack-spec.md) · [示例包](examples/example-pack/)
 - [贡献指南](CONTRIBUTING.md) · [发布流程](docs/RELEASING.md)
-- Core 124 个单测 + App/扩展编译检查在每次 push 由 CI 运行(`.github/workflows/ci.yml`)
+- Core 127 个单测 + 预设脚本测试 + App/扩展编译检查在每次 push 由 CI 运行(`.github/workflows/ci.yml`)
 
 ## 已知限制
 

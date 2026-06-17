@@ -48,6 +48,36 @@ final class IPCTests: XCTestCase {
         XCTAssertThrowsError(try ExtensionSnapshot.decode("not-json"))
     }
 
+    func testEndToEndSnapshotThroughChunkingToMenu() throws {
+        // 完整复刻扩展路径:App 编码 → 分块 → 每块封装 → 扩展逐条解码 → 重组 → 解码快照 → 画菜单。
+        let config = MenuConfig.defaultSeed()
+        let newFile = try XCTUnwrap(config.actions.first { $0.presetKey == "new-file" })
+        let snapshot = ExtensionSnapshot(
+            config: config,
+            variantListings: [newFile.id: ["A.txt", "B.md"]],
+            iconImages: [try XCTUnwrap(config.actions.first).id.uuidString: "iVBORw0KGgo="])
+
+        // App 端:编码 + 分块(小 limit 强制多块)+ 每块封装为线缆字符串。
+        let payload = try snapshot.encodedString()
+        let wire = try ChunkedTransport.split(payload, limit: 64).map { try $0.encodedString() }
+        XCTAssertGreaterThan(wire.count, 1, "payload should span multiple chunks at this limit")
+
+        // 扩展端:逐条解码 + 重组 + 解码快照。
+        let reassembler = ChunkReassembler()
+        var assembled: String?
+        for s in wire {
+            if let done = reassembler.receive(try ChunkedTransport.Chunk.decode(s)) { assembled = done }
+        }
+        let decoded = try ExtensionSnapshot.decode(try XCTUnwrap(assembled))
+        XCTAssertEqual(decoded, snapshot)
+
+        // 扩展端:用收到的快照真正画一遍菜单(空白处 → 新建文件子菜单按注入列举展开)。
+        let specs = MenuBuilder.build(MenuBuildInput(
+            config: decoded.config, context: .container(FileManager.default.temporaryDirectory),
+            heartbeatFresh: true, variantListings: decoded.variantListings))
+        XCTAssertEqual(specs.first { $0.title == newFile.title }?.children.map(\.title), ["A.txt", "B.md"])
+    }
+
     func testExtensionSnapshotIconImagesRoundTrip() throws {
         // 带自定义图片图标字节的快照编解码一致
         let config = MenuConfig.defaultSeed()

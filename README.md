@@ -144,7 +144,7 @@ repeating macOS permission prompts.
 
 - [Extension Pack Specification](docs/pack-spec.md) · [example pack](examples/example-pack/)
 - [Contributing](CONTRIBUTING.md) · [Releasing](docs/RELEASING.md)
-- Core unit tests (124) plus an App/extension compile check run in CI on every push (`.github/workflows/ci.yml`).
+- Core unit tests (127) + preset-script tests + an App/extension compile check run in CI on every push (`.github/workflows/ci.yml`).
 
 ## Known limitations
 

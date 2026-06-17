@@ -15,6 +15,9 @@ jobs:
         run: swift test
         working-directory: Core
 
+      - name: Test preset scripts (deterministic behaviour)
+        run: zsh scripts/test-presets.sh
+
       - name: Generate project (project.yml)
         run: |
           brew install xcodegen
