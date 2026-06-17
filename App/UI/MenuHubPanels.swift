@@ -70,6 +70,7 @@ struct PvEditor: View {
     @State private var variantsDir = ""
     @State private var timeoutSeconds = 60
     @State private var loaded = false
+    @State private var pendingCommit: DispatchWorkItem?
 
     init(action: MenuAction, onSave: @escaping (MenuAction) -> Void,
          onRestore: (() -> Void)? = nil, onDelete: (() -> Void)? = nil) {
@@ -257,6 +258,7 @@ struct PvEditor: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .onAppear(perform: loadFromAction)
+        .onDisappear(perform: flushCommit)
         .alert(action.presetKey != nil
                ? String(format: String(localized: "editor.deletePresetConfirm"), action.title)
                : String(format: String(localized: "editor.deleteActionConfirm"), action.title),
@@ -352,8 +354,26 @@ struct PvEditor: View {
         loaded = true
     }
 
+    /// 防抖:编辑器原来每个键击都写盘 + 重推快照。合并 0.3s 内的连续改动;
+    /// 切换动作/关闭面板(视图消失)时 flush,保证不丢最后一次输入。
     private func commit() {
         guard loaded else { return }
+        pendingCommit?.cancel()
+        let work = DispatchWorkItem { performCommit() }
+        pendingCommit = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+
+    private func flushCommit() {
+        guard let w = pendingCommit else { return }
+        w.cancel()
+        pendingCommit = nil
+        performCommit()
+    }
+
+    private func performCommit() {
+        guard loaded else { return }
+        pendingCommit = nil
         var saved = action
         switch kindChoice {
         case 0: saved.kind = .runScript(ScriptSpec(scriptPath: scriptPath, timeoutSeconds: timeoutSeconds))

@@ -60,15 +60,23 @@ struct ScreenMenuHub: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-                .frame(width: 326)
-                .background(.regularMaterial)
-                .overlay(alignment: .trailing) {
-                    Rectangle().fill(MMColor.separator).frame(width: 0.5)
-                }
-            detail
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 0) {
+            if let err = state.configError {
+                Banner(err, tone: .red)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+            }
+            HStack(spacing: 0) {
+                sidebar
+                    .frame(width: 326)
+                    .background(.regularMaterial)
+                    .overlay(alignment: .trailing) {
+                        Rectangle().fill(MMColor.separator).frame(width: 0.5)
+                    }
+                detail
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(MMColor.content)

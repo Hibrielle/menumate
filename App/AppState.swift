@@ -21,6 +21,8 @@ final class AppState: ObservableObject {
     private var lastPushTime: Date = .distantPast
     /// 上次由本进程写盘后的 config.json mtime；心跳据此检测"外部进程(AI/CLI/手动)改了 config.json"→ 实时重载
     private var lastConfigMTime: Date = .distantPast
+    /// 上次重建快照时的模板/图标目录指纹;心跳据此跳过没必要的昂贵重建
+    private var lastAuxSignature = ""
 
     func start() {
         PresetSeeder.seedIfNeeded()      // 脚本/模板/数据目录落盘（Task 11 实现）
@@ -86,9 +88,16 @@ final class AppState: ObservableObject {
     }
 
     /// 外部进程(AI / CLI / 手动)改了 config.json 时重读并广播,无需重启 App。
-    /// 解析失败(如写到一半)忽略,保留当前内存态,下个心跳再试。
+    /// 解析失败(JSON 损坏 / 写到一半)时保留当前内存态,但把错误暴露给 UI,并【不】推进
+    /// lastConfigMTime——这样下个心跳还会重试,用户修好文件后能自动恢复。
     func reloadFromDisk() {
-        guard let loaded = try? store.load() else { return }
+        let loaded: MenuConfig
+        do {
+            loaded = try store.load()
+        } catch {
+            configError = String(format: String(localized: "runtime.configLoadError"), error.localizedDescription)
+            return
+        }
         config = loaded
         configError = nil
         lastConfigMTime = configMTime()
@@ -151,14 +160,18 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// 心跳 + 按需推快照（模板目录在 App 外被改动时，值比较才会与上次不同）。
-    /// 每 10 次无条件全量推一次，收敛残留的伪造快照驻留窗口。
+    /// 心跳 + 按需推快照。buildSnapshot 含目录 I/O + 逐图标读盘 + 编码,不必每 3s 都做:
+    /// config 变动由上面的 mtime 分支即时处理;此处只在【模板/图标目录】变化或每 10 拍兜底时重建。
     private func heartbeatTick() {
         DistributedNotificationCenter.default().postNotificationName(
             .init(IPC.heartbeatNotification), object: nil, userInfo: nil, deliverImmediately: true)
         // 外部进程改了 config.json(AI/CLI 直接操作数据源)→ 实时重载 + 重推快照,无需重启。
         if configMTime() > lastConfigMTime { reloadFromDisk(); return }
         heartbeatCount += 1
+        // 廉价门控:模板/图标目录没变且未到兜底拍,就跳过昂贵的快照重建。
+        let sig = auxMTimeSignature()
+        if sig == lastAuxSignature && heartbeatCount < 10 { return }
+        lastAuxSignature = sig
         let snapshot = buildSnapshot()
         if snapshot != lastPushed || heartbeatCount >= 10 {
             heartbeatCount = 0
@@ -167,6 +180,18 @@ final class AppState: ObservableObject {
             guard let encoded = try? snapshot.encodedString() else { return }
             postSnapshot(encoded)
         }
+    }
+
+    /// 快照中【非 config】部分的来源:模板目录(变体列举)与图标目录(自定义图标字节)。
+    /// 取两者的修改时间做廉价指纹;变了才需要重建快照。
+    private func auxMTimeSignature() -> String {
+        let base = AppPaths.configDirectory()
+        func mtime(_ sub: String) -> String {
+            let p = base.appendingPathComponent(sub).path
+            let d = (try? FileManager.default.attributesOfItem(atPath: p)[.modificationDate]) as? Date
+            return d.map { String($0.timeIntervalSince1970) } ?? "-"
+        }
+        return mtime("Templates") + "|" + mtime("Icons")
     }
 
     private func startHeartbeat() {
