@@ -30,11 +30,18 @@ SPARKLE_BIN="$ROOT/build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 echo "==> Generating project"
 make gen >/dev/null
 
+# Inject the release version into the build so Info.plist (and thus Sparkle's update
+# comparison) matches the tag. CFBundleVersion uses a monotonic commit count.
+BUILD_NUMBER="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)"
+echo "==> Version: MARKETING_VERSION=$VERSION  CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+
 echo "==> Archiving (Release, Developer ID, hardened runtime)"
 rm -rf "$ARCHIVE" "$EXPORT"
 xcodebuild -project MenuMate.xcodeproj -scheme MenuMate -configuration Release \
   -derivedDataPath "$ROOT/build" \
   archive -archivePath "$ARCHIVE" \
+  MARKETING_VERSION="$VERSION" \
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="$DEVELOPER_ID_APP" \
   DEVELOPMENT_TEAM="$TEAM_ID" \
@@ -74,4 +81,4 @@ echo "    $SIG"
 echo ""
 echo "✅ Release artifact: $DMG"
 echo "   Append this to appcast.xml's <item> (or run: $SPARKLE_BIN/generate_appcast <dir-of-dmgs>):"
-echo "   version=$VERSION  $SIG"
+echo "   sparkle:shortVersionString=$VERSION  sparkle:version=$BUILD_NUMBER  $SIG"
