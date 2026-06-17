@@ -25,6 +25,7 @@ struct ClonedPack {
     let repo: String             // owner/repo
     let commitSHA: String        // 短 SHA
     let scripts: [String: String]   // PackAction.id → 脚本源码(读不到则缺省)
+    var extraFiles: [PackFile] = []  // manifest 未声明、需审查的文件(隐藏脚本/可执行/二进制)
 }
 
 /// `checkUpdate` 结果:远端 HEAD 与本地 commitSHA 不同。
@@ -136,9 +137,13 @@ final class PackManager: ObservableObject {
 
         do {
             let (manifest, scripts) = try Self.readManifestAndScripts(in: tempDir)
+            // 安全网:列出 manifest 之外的文件(脚本可经相对路径 source 它们),逼审查者看见隐藏的兄弟文件。
+            let extras = PackInspector.undeclaredFiles(inDirectory: tempDir,
+                                                       declared: Set(manifest.actions.map(\.script)))
             let sha = await Self.shortHEAD(in: tempDir)
             return ClonedPack(tempDir: tempDir, key: key, manifest: manifest,
-                              repoURL: repoURL, repo: repo, commitSHA: sha, scripts: scripts)
+                              repoURL: repoURL, repo: repo, commitSHA: sha,
+                              scripts: scripts, extraFiles: extras)
         } catch {
             try? FileManager.default.removeItem(at: tempDir)
             throw error

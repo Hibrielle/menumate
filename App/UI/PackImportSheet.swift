@@ -101,6 +101,8 @@ struct PackImportSheet: View {
     /// 已查看的动作 id 集合(PackAction.id)。
     @State private var viewed: Set<String> = []
     @State private var selectedActionID: String?
+    /// 已确认知悉「未声明文件」(仅当包内存在这类文件时作为额外放行条件)。
+    @State private var extrasAck = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -195,6 +197,12 @@ struct PackImportSheet: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 11)
 
+                    if !cloned.extraFiles.isEmpty {
+                        undeclaredFilesSection(cloned.extraFiles)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 9)
+                    }
+
                     HStack(alignment: .top, spacing: 14) {
                         reviewList(actions: actions)
                             .frame(width: 200)
@@ -212,8 +220,8 @@ struct PackImportSheet: View {
                     Spacer(minLength: 0)
                     MMButton(String(localized: "packImport.back")) { phase = .url }
                     MMButton(String(localized: "packImport.continue"), kind: .primary) { phase = .confirm }
-                        .disabled(!allViewed(actions))
-                        .opacity(allViewed(actions) ? 1 : 0.4)
+                        .disabled(!canContinue(actions))
+                        .opacity(canContinue(actions) ? 1 : 0.4)
                 }
             }
         }
@@ -355,6 +363,44 @@ struct PackImportSheet: View {
 
     private func allViewed(_ actions: [PackAction]) -> Bool {
         !actions.isEmpty && actions.allSatisfy { viewed.contains($0.id) }
+    }
+
+    /// 放行条件:看完每个声明脚本 + (若有未声明文件)勾选已审查。
+    private func canContinue(_ actions: [PackAction]) -> Bool {
+        guard allViewed(actions) else { return false }
+        return (cloned?.extraFiles.isEmpty ?? true) || extrasAck
+    }
+
+    /// 暴露 manifest 之外的文件,逼审查者正视隐藏脚本/可执行/二进制。
+    @ViewBuilder private func undeclaredFilesSection(_ files: [PackFile]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(String(format: String(localized: "packImport.undeclaredTitle"), files.count))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MMColor.red)
+            ForEach(files, id: \.relativePath) { f in
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 11)).foregroundStyle(MMColor.label3)
+                    Text(f.relativePath)
+                        .font(.system(size: 11, design: .monospaced)).foregroundStyle(MMColor.label)
+                        .lineLimit(1).truncationMode(.middle)
+                    if f.isExecutable { Badge(String(localized: "packImport.flagExecutable"), tone: .red) }
+                    if f.isBinary { Badge(String(localized: "packImport.flagBinary"), tone: .gray) }
+                    Spacer(minLength: 0)
+                }
+            }
+            Toggle(isOn: $extrasAck) {
+                Text(String(localized: "packImport.undeclaredAck")).font(.system(size: 11.5))
+            }
+            .toggleStyle(.checkbox)
+            .padding(.top, 2)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(MMColor.card)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(MMColor.red.opacity(0.4), lineWidth: 0.8))
     }
 
     private func matchSummary(_ a: PackAction) -> String {

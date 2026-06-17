@@ -4640,6 +4640,70 @@
           }
         }
       }
+    },
+    "packImport.undeclaredTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d undeclared file(s) — scripts may reference these. Review before installing."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 个未在 manifest 声明的文件——脚本可能引用它们，安装前请审查。"
+          }
+        }
+      }
+    },
+    "packImport.undeclaredAck": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I've reviewed these undeclared files"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我已审查这些未声明文件"
+          }
+        }
+      }
+    },
+    "packImport.flagExecutable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "executable"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可执行"
+          }
+        }
+      }
+    },
+    "packImport.flagBinary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "binary"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "二进制"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
