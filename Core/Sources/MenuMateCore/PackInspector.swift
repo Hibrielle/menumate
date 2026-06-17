@@ -5,10 +5,12 @@ public struct PackFile: Equatable, Sendable {
     public let relativePath: String
     public let isExecutable: Bool
     public let isBinary: Bool
-    public init(relativePath: String, isExecutable: Bool, isBinary: Bool) {
+    public let isSymlink: Bool
+    public init(relativePath: String, isExecutable: Bool, isBinary: Bool, isSymlink: Bool = false) {
         self.relativePath = relativePath
         self.isExecutable = isExecutable
         self.isBinary = isBinary
+        self.isSymlink = isSymlink
     }
 }
 
@@ -20,14 +22,17 @@ public enum PackInspector {
     /// 故意【不】跳过其它点文件——隐藏脚本(如 `.evil.sh`)恰恰最该被审查者看见。
     public static func undeclaredFiles(inDirectory dir: URL, declared: Set<String>) -> [PackFile] {
         let fm = FileManager.default
-        guard let en = fm.enumerator(at: dir, includingPropertiesForKeys: [.isRegularFileKey],
+        guard let en = fm.enumerator(at: dir, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
                                      options: [], errorHandler: nil) else { return [] }
         let skipExact: Set<String> = ["manifest.json", ".gitignore", ".gitattributes", ".DS_Store"]
         let base = dir.standardizedFileURL.path
         var out: [PackFile] = []
         for case let url as URL in en {
             if url.pathComponents.contains(".git") { continue }   // 不审查版本库内部
-            guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+            let vals = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            let isSym = vals?.isSymbolicLink == true
+            guard isSym || vals?.isRegularFile == true else { continue }   // 跳过目录
+            // standardizedFileURL 只折叠 ./.. ,不跟随 symlink,所以 symlink 用的是自身路径。
             let full = url.standardizedFileURL.path
             guard full.hasPrefix(base + "/") else { continue }
             let rel = String(full.dropFirst(base.count + 1))
@@ -36,9 +41,21 @@ public enum PackInspector {
             let lname = name.lowercased()
             if skipExact.contains(name) { continue }
             if lname.hasSuffix(".md") || lname.hasPrefix("readme") || lname.hasPrefix("license") { continue }
-            out.append(PackFile(relativePath: rel, isExecutable: isExecutable(url), isBinary: isBinary(url)))
+            out.append(PackFile(relativePath: rel,
+                                isExecutable: isSym ? false : isExecutable(url),
+                                isBinary: isSym ? false : isBinary(url),
+                                isSymlink: isSym))
         }
         return out.sorted { $0.relativePath < $1.relativePath }
+    }
+
+    /// symlink 逃逸防御:声明脚本解析(跟随 symlink)后的真实路径必须仍在包目录内。
+    /// 字符串级的 `..`/绝对路径检查挡不住 symlink,这里在拿到真实克隆目录时再核一遍。
+    public static func resolvesInside(directory dir: URL, relativePath: String) -> Bool {
+        let base = dir.resolvingSymlinksInPath().standardizedFileURL.path
+        let target = dir.appendingPathComponent(relativePath)
+            .resolvingSymlinksInPath().standardizedFileURL.path
+        return target == base || target.hasPrefix(base + "/")
     }
 
     private static func isExecutable(_ url: URL) -> Bool {

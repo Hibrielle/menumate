@@ -384,6 +384,7 @@ struct PackImportSheet: View {
                     Text(f.relativePath)
                         .font(.system(size: 11, design: .monospaced)).foregroundStyle(MMColor.label)
                         .lineLimit(1).truncationMode(.middle)
+                    if f.isSymlink { Badge(String(localized: "packImport.flagSymlink"), tone: .orange) }
                     if f.isExecutable { Badge(String(localized: "packImport.flagExecutable"), tone: .red) }
                     if f.isBinary { Badge(String(localized: "packImport.flagBinary"), tone: .gray) }
                     Spacer(minLength: 0)

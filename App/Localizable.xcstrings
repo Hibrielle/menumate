@@ -4704,6 +4704,22 @@
           }
         }
       }
+    },
+    "packImport.flagSymlink": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "symlink"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "软链接"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

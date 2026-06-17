@@ -42,4 +42,22 @@ final class PackInspectorTests: XCTestCase {
         XCTAssertEqual(byPath["run.sh"]?.isExecutable, true)
         XCTAssertEqual(byPath["tool"]?.isBinary, true, "NUL byte → binary")
     }
+
+    func testResolvesInsideRejectsSymlinkEscape() throws {
+        try write("ok.sh", "echo ok")
+        XCTAssertTrue(PackInspector.resolvesInside(directory: dir, relativePath: "ok.sh"))
+        // a "safe-looking" relative path that is actually a symlink out of the pack
+        try FileManager.default.createSymbolicLink(at: dir.appendingPathComponent("escape.sh"),
+                                                   withDestinationURL: URL(fileURLWithPath: "/etc/hosts"))
+        XCTAssertFalse(PackInspector.resolvesInside(directory: dir, relativePath: "escape.sh"))
+        XCTAssertFalse(PackInspector.resolvesInside(directory: dir, relativePath: "../outside.sh"))
+    }
+
+    func testUndeclaredFilesFlagsSymlink() throws {
+        try write("manifest.json", "{}")
+        try FileManager.default.createSymbolicLink(at: dir.appendingPathComponent("link.sh"),
+                                                   withDestinationURL: URL(fileURLWithPath: "/etc/hosts"))
+        let extras = PackInspector.undeclaredFiles(inDirectory: dir, declared: [])
+        XCTAssertEqual(extras.first { $0.relativePath == "link.sh" }?.isSymlink, true)
+    }
 }

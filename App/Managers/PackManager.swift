@@ -355,7 +355,11 @@ final class PackManager: ObservableObject {
         }
         var scripts: [String: String] = [:]
         for pa in manifest.actions {
-            // pa.script already validated as a safe in-repo relative path.
+            // pa.script passed the string-level check; also reject symlink escapes now that
+            // we have the real cloned dir (a "safe" relative path can still be a symlink to /etc).
+            guard PackInspector.resolvesInside(directory: dir, relativePath: pa.script) else {
+                throw PackError.manifestInvalid("script path escapes pack: \(pa.script)")
+            }
             let url = dir.appendingPathComponent(pa.script)
             if let text = try? String(contentsOf: url, encoding: .utf8) {
                 scripts[pa.id] = text
