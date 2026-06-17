@@ -132,6 +132,9 @@ struct ScreenMenuHub: View {
                 } else {
                     HStack(spacing: 8) {
                         MMButton(String(localized: "menu.addAction"), systemImage: "plus", size: .sm) { addAction() }
+                        MMButton(String(localized: "menu.browsePacks"), systemImage: "shippingbox", size: .sm) {
+                            state.settingsTab = .packs
+                        }
                         Spacer(minLength: 0)
                         Text(String(localized: "menu.realMenuAppearance"))
                             .font(.system(size: 10.5))

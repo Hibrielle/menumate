@@ -4720,6 +4720,22 @@
           }
         }
       }
+    },
+    "menu.browsePacks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extension packs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扩展包"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
