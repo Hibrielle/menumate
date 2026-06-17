@@ -71,6 +71,9 @@ struct PvEditor: View {
     @State private var timeoutSeconds = 60
     @State private var loaded = false
     @State private var pendingCommit: DispatchWorkItem?
+    @State private var testRunning = false
+    @State private var testRunResult: TestRunOutcome?
+    @State private var testTask: Task<Void, Never>?
 
     init(action: MenuAction, onSave: @escaping (MenuAction) -> Void,
          onRestore: (() -> Void)? = nil, onDelete: (() -> Void)? = nil) {
@@ -245,6 +248,11 @@ struct PvEditor: View {
                         openScriptInEditor()
                     }
                 }
+                if kindChoice < 2 {   // 仅脚本类(文件 / 内联)可试运行
+                    MMButton(testRunning ? String(localized: "editor.testRunRunning") : String(localized: "editor.testRun"),
+                             systemImage: "play", size: .sm) { testRun() }
+                        .disabled(testRunning)
+                }
                 Spacer(minLength: 0)
                 if onDelete != nil {
                     MMButton(String(localized: "editor.delete"), kind: .danger, size: .sm) { confirmDelete = true }
@@ -258,7 +266,8 @@ struct PvEditor: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .onAppear(perform: loadFromAction)
-        .onDisappear(perform: flushCommit)
+        .onDisappear { flushCommit(); testTask?.cancel() }
+        .sheet(item: $testRunResult) { TestRunSheet(outcome: $0) }
         .alert(action.presetKey != nil
                ? String(format: String(localized: "editor.deletePresetConfirm"), action.title)
                : String(format: String(localized: "editor.deleteActionConfirm"), action.title),
@@ -407,6 +416,66 @@ struct PvEditor: View {
         }
         action = saved
         onSave(saved)
+    }
+
+    // 试运行:用与真实执行完全相同的环境契约跑脚本,但捕获 stdout/stderr/退出码内联展示。
+    // 选真实目标(容器动作选文件夹,其余可多选文件);有变体则取当前第一个变体值。
+    private func testRun() {
+        guard !testRunning else { return }
+        flushCommit()
+        guard case .runScript(let spec) = action.kind else { return }
+        // 空脚本:直接给清晰提示,别让用户选完目标才看到 exit 127 / 静默 exit 0。
+        let empty = (kindChoice == 0 && scriptPath.trimmingCharacters(in: .whitespaces).isEmpty)
+                 || (kindChoice == 1 && inlineSource.trimmingCharacters(in: .whitespaces).isEmpty)
+        if empty {
+            testRunResult = TestRunOutcome(
+                result: ShellResult(exitCode: -1, stdout: "",
+                                    stderr: String(localized: "editor.testRunNoScript"), timedOut: false),
+                variant: nil, count: 0)
+            return
+        }
+        let panel = NSOpenPanel()
+        // 只让选这个动作真正会匹配的目标类型(any/files 选文件;any/folders/container 选文件夹)。
+        panel.canChooseFiles = targetChoice == 0 || targetChoice == 1
+        panel.canChooseDirectories = targetChoice != 1
+        panel.allowsMultipleSelection = targetChoice != 3
+        panel.message = String(localized: "editor.testRunPick")
+        panel.prompt = String(localized: "editor.testRun")
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        let urls = panel.urls
+        let paths = urls.map(\.path)
+        let variant = currentTestVariant()
+        let env = ActionRunner.contractEnv()
+        let cwd = ActionRunner.workingDirectory(for: urls)
+        let base = AppPaths.configDirectory()
+        testRunning = true
+        // @MainActor in:阻塞执行在 Task.detached 里跑(不卡 UI),@State 写回回到主线程。
+        testTask = Task { @MainActor in
+            let r = await Task.detached {
+                ShellRunner.runScript(spec, paths: paths, variant: variant,
+                                      scriptBase: base, cwd: cwd, extraEnv: env)
+            }.value
+            if Task.isCancelled { return }   // 面板关闭/切换动作时丢弃结果
+            testRunning = false
+            testRunResult = TestRunOutcome(result: r, variant: variant, count: urls.count)
+        }
+    }
+
+    /// 试运行用的变体值:固定列表取第一个;目录列举解析后取第一个;无变体为 nil。
+    private func currentTestVariant() -> String? {
+        switch variantChoice {
+        case 1:
+            return variantsFixed.split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
+        case 2:
+            let raw = variantsDir.trimmingCharacters(in: .whitespaces)
+            guard !raw.isEmpty else { return nil }
+            let dir = raw.hasPrefix("/") ? URL(fileURLWithPath: raw)
+                                         : AppPaths.configDirectory().appendingPathComponent(raw)
+            return TemplateStore.list(in: dir).first
+        default:
+            return nil
+        }
     }
 
     private func chooseScript() {
@@ -799,5 +868,68 @@ private struct TypeChip: View {
                                           lineWidth: kHairline))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 试运行结果
+
+struct TestRunOutcome: Identifiable {
+    let id = UUID()
+    let result: ShellResult
+    let variant: String?
+    let count: Int
+}
+
+/// 试运行结果 sheet:退出码 + 变体 + stdout/stderr 内联(可选中复制)。
+private struct TestRunSheet: View {
+    let outcome: TestRunOutcome
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let r = outcome.result
+        let ok = !r.timedOut && r.exitCode == 0
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                    .foregroundStyle(ok ? MMColor.green : MMColor.red)
+                Text(String(localized: "editor.testRunTitle")).font(.system(size: 15, weight: .semibold))
+                Spacer(minLength: 0)
+                Text(r.timedOut
+                     ? String(localized: "editor.testRunTimedOut")
+                     : String(format: String(localized: ok ? "editor.testRunSuccess" : "editor.testRunFailed"), Int(r.exitCode)))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(ok ? MMColor.green : MMColor.red)
+            }
+            if let v = outcome.variant {
+                Text("\(String(localized: "editor.testRunVariant")): \(v)")
+                    .font(.system(size: 11.5)).foregroundStyle(MMColor.label2)
+            }
+            outputBlock(String(localized: "editor.testRunStdout"), r.stdout)
+            if !r.stderr.isEmpty { outputBlock(String(localized: "editor.testRunStderr"), r.stderr) }
+            HStack {
+                Spacer(minLength: 0)
+                MMButton(String(localized: "editor.testRunClose"), kind: .primary, size: .sm) { dismiss() }
+            }
+        }
+        .padding(18)
+        .frame(width: 470, height: 380)
+    }
+
+    @ViewBuilder private func outputBlock(_ label: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(.system(size: 11, weight: .semibold)).foregroundStyle(MMColor.label3)
+            ScrollView {
+                Text(text.isEmpty ? String(localized: "editor.testRunNoOutput") : text)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(MMColor.label)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxHeight: .infinity)
+            .padding(8)
+            .background(MMColor.field)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(MMColor.border, lineWidth: kHairline))
+        }
     }
 }

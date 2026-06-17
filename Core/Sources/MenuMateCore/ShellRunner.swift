@@ -5,6 +5,12 @@ public struct ShellResult: Equatable {
     public let stdout: String
     public let stderr: String
     public let timedOut: Bool
+    public init(exitCode: Int32, stdout: String, stderr: String, timedOut: Bool) {
+        self.exitCode = exitCode
+        self.stdout = stdout
+        self.stderr = stderr
+        self.timedOut = timedOut
+    }
 }
 
 // MARK: - Thread-safe pipe buffer
