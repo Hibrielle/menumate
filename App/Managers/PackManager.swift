@@ -402,6 +402,11 @@ final class PackManager: ObservableObject {
     /// `owner/repo` → `https://github.com/owner/repo.git`; https/git URLs pass through.
     static func normalizeRepoURL(_ input: String) -> String {
         let s = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 本地路径 / file:// 原样返回(供本地或私有包导入)。否则 "/a/b" 会被下面的
+        // owner/repo 分支误判成 GitHub 仓库(正好两段)。
+        if s.hasPrefix("/") || s.hasPrefix("file://") || s.hasPrefix("~") {
+            return (s as NSString).expandingTildeInPath
+        }
         if s.hasPrefix("http://") || s.hasPrefix("https://") || s.hasPrefix("git@") || s.hasPrefix("ssh://") {
             return s
         }
