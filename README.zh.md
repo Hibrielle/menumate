@@ -88,7 +88,20 @@ make run         # 构建并启动
 
 ## 脚本环境契约
 
-每个脚本(预设或扩展包)以 `/bin/zsh` 执行,注入:`$1..$n`(选中项绝对路径)、`MENUMATE_PATHS`(换行分隔全部路径)、`MENUMATE_VARIANT`(子菜单选值)、`MENUMATE_TEMPLATES`/`MENUMATE_DATA`、`MENUMATE_TERMINAL`/`MENUMATE_EDITOR`、`MENUMATE_SCRIPT`(脚本自身绝对路径,`${0:A:h}` 即其所在目录,可定位同级文件/二进制);退出码 0 成功(stdout 首行为摘要),非 0 失败(stderr 进「最近执行」+ 通知)。详见 [pack-spec](docs/pack-spec.md#script-environment-contract)。
+每个脚本(预设或扩展包)以 `/bin/zsh` 执行,注入:
+
+| 变量 / 参数 | 含义 |
+|----------------|------|
+| `$1 … $n` | 选中项的绝对路径(空白处动作传容器路径) |
+| `MENUMATE_PATHS` | 全部路径,换行分隔 |
+| `MENUMATE_VARIANT` | 选中的子菜单值(如 `jpeg`) |
+| `MENUMATE_TEMPLATES` / `MENUMATE_DATA` | 模板目录 / 数据目录 |
+| `MENUMATE_TERMINAL` / `MENUMATE_EDITOR` | 你选的默认终端 / 编辑器 bundle id |
+| `MENUMATE_SCRIPT` | 脚本自身绝对路径(`${0:A:h}` 即其所在目录,可定位同级文件/二进制) |
+| 退出码 `0` | 成功;stdout 首行作为摘要 |
+| 退出码非 `0` | 失败;stderr 进「最近执行」+ 通知 |
+
+详见 [pack-spec](docs/pack-spec.md#script-environment-contract)。
 
 ## 架构
 

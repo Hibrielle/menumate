@@ -4944,6 +4944,22 @@
           }
         }
       }
+    },
+    "editor.selectionCountInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Min is greater than max — this action will never appear"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最少大于最多——此动作将永不出现"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

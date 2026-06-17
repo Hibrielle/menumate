@@ -182,11 +182,17 @@ struct PvEditor: View {
                 // 选中数范围对「目录空白处」无意义(那里没有选中项),仅在针对选中项时显示。
                 if targetChoice != 3 {
                     PvField(String(localized: "editor.selectionCount"), hint: String(localized: "editor.selectionCountHint")) {
-                        HStack(spacing: 8) {
-                            Text(String(localized: "editor.selMin")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
-                            selCountField($minSelText)
-                            Text(String(localized: "editor.selMax")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
-                            selCountField($maxSelText)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text(String(localized: "editor.selMin")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
+                                selCountField($minSelText)
+                                Text(String(localized: "editor.selMax")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
+                                selCountField($maxSelText)
+                            }
+                            if selCountInvalid {
+                                Text(String(localized: "editor.selectionCountInvalid"))
+                                    .font(.system(size: 11)).foregroundStyle(MMColor.red)
+                            }
                         }
                     }
                 }
@@ -279,6 +285,13 @@ struct PvEditor: View {
                  ? String(localized: "editor.deletePresetMessage")
                  : String(localized: "editor.deleteActionMessage"))
         }
+    }
+
+    /// 最少 > 最多 → 该动作永不出现,给个明确警告。
+    private var selCountInvalid: Bool {
+        guard let mn = Int(minSelText.trimmingCharacters(in: .whitespaces)), mn > 0,
+              let mx = Int(maxSelText.trimmingCharacters(in: .whitespaces)), mx > 0 else { return false }
+        return mn > mx
     }
 
     // 小号数字输入框：空 = 不限。沿用 timeout 字段外观。
