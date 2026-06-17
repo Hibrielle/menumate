@@ -160,4 +160,16 @@ final class ModelsTests: XCTestCase {
         let version = try MenuConfig.schemaVersion(of: json)
         XCTAssertEqual(version, 999)
     }
+
+    /// MatchRule 宽松解码:缺字段退化为默认,不让手写/AI 精简动作整份解码失败。
+    func testMatchRuleLenientDecodeFillsDefaults() throws {
+        let r1 = try JSONDecoder().decode(MatchRule.self, from: Data(#"{"targets":"files"}"#.utf8))
+        XCTAssertEqual(r1.targets, .files)
+        XCTAssertEqual(r1.utis, [])
+        let r2 = try JSONDecoder().decode(MatchRule.self, from: Data("{}".utf8))
+        XCTAssertEqual(r2.targets, .any)
+        XCTAssertEqual(r2.utis, [])
+        XCTAssertNil(r2.maxSelectionCount)
+        XCTAssertNil(r2.minSelectionCount)
+    }
 }

@@ -41,6 +41,15 @@ public struct MatchRule: Codable, Equatable, Sendable {
         self.targets = targets; self.utis = utis
         self.maxSelectionCount = maxSelectionCount; self.minSelectionCount = minSelectionCount
     }
+    // 宽松解码:缺 targets / utis 时退化为默认值,而非让整份 config 解码失败
+    // (手写/AI 写的精简动作很容易漏字段;encode 仍由编译器合成,写出完整字段)。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        targets = try c.decodeIfPresent(TargetKind.self, forKey: .targets) ?? .any
+        utis = try c.decodeIfPresent([String].self, forKey: .utis) ?? []
+        maxSelectionCount = try c.decodeIfPresent(Int.self, forKey: .maxSelectionCount)
+        minSelectionCount = try c.decodeIfPresent(Int.self, forKey: .minSelectionCount)
+    }
 }
 
 // MARK: - Deterministic UUID

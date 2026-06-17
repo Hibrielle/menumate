@@ -28,14 +28,17 @@ enum PackDiscovery {
 
     /// 拉取带 `menumate-pack` topic 的公开仓库,按 star 降序。
     static func search() async throws -> [DiscoveredPack] {
-        var comp = URLComponents(string: "https://api.github.com/search/repositories")!
+        guard var comp = URLComponents(string: "https://api.github.com/search/repositories") else {
+            throw NSError(domain: "PackDiscovery", code: -2)
+        }
         comp.queryItems = [
             .init(name: "q", value: "topic:\(topic)"),
             .init(name: "sort", value: "stars"),
             .init(name: "order", value: "desc"),
             .init(name: "per_page", value: "50"),
         ]
-        var req = URLRequest(url: comp.url!)
+        guard let url = comp.url else { throw NSError(domain: "PackDiscovery", code: -3) }
+        var req = URLRequest(url: url)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         req.setValue("MenuMate", forHTTPHeaderField: "User-Agent")
         req.timeoutInterval = 15

@@ -132,6 +132,10 @@ public enum ShellRunner {
         _ = errDone.wait(timeout: drainDeadline)
         // If we timed out above, abandon the readers — they'll eventually fire when
         // grandchildren die.  We snapshot whatever is in the PipeBuffer right now.
+        // Release the handlers either way so the closures + FileHandles don't leak
+        // when we abandon (on the normal-exit path they're already nil).
+        outPipe.fileHandleForReading.readabilityHandler = nil
+        errPipe.fileHandleForReading.readabilityHandler = nil
 
         // Signal-death exit code normalization (128 + signal number).
         var exitCode = p.terminationStatus
