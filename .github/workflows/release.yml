@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-14
+    runs-on: macos-15   # Xcode 16 default (xcodegen emits project format 77)
     steps:
       - uses: actions/checkout@v4
 
