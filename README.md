@@ -124,6 +124,7 @@ Every script (preset or pack) is run under `/bin/zsh` with:
 | `MENUMATE_VARIANT` | the chosen submenu value (e.g. `jpeg`) |
 | `MENUMATE_TEMPLATES` / `MENUMATE_DATA` | template & data directories |
 | `MENUMATE_TERMINAL` / `MENUMATE_EDITOR` | your chosen default terminal / editor bundle id |
+| `MENUMATE_SCRIPT` | this script's own absolute path (`pack_root="${0:A:h}"` to find sibling files/binaries) |
 | exit `0` | success; first stdout line is the summary |
 | exit non-`0` | failure; stderr surfaced in “Recent Executions” + a notification |
 
@@ -143,7 +144,7 @@ repeating macOS permission prompts.
 
 - [Extension Pack Specification](docs/pack-spec.md) · [example pack](examples/example-pack/)
 - [Contributing](CONTRIBUTING.md) · [Releasing](docs/RELEASING.md)
-- Core unit tests (119) run in CI on every push (`.github/workflows/ci.yml`).
+- Core unit tests (124) plus an App/extension compile check run in CI on every push (`.github/workflows/ci.yml`).
 
 ## Known limitations
 

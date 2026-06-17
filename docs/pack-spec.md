@@ -107,6 +107,7 @@ Pack scripts run exactly like built-in presets — under `/bin/zsh`, no executab
 | `MENUMATE_VARIANT` | the chosen submenu value (empty when there is no submenu) |
 | `MENUMATE_DATA` | absolute path to MenuMate's data directory (persist state here) |
 | `MENUMATE_TEMPLATES` | absolute path to the templates directory |
+| `MENUMATE_SCRIPT` | this script's own absolute path; `pack_root="${0:A:h}"` locates sibling files/binaries shipped in the pack |
 | working directory | the first selected item's folder |
 | exit `0` | success; the first stdout line becomes the success summary |
 | exit non-`0` | failure; stderr is surfaced in “Recent Executions” and a notification |

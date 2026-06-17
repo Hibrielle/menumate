@@ -77,13 +77,16 @@ Variations:
 - **Submenu (fixed list)**: add `"variants": { "fixed": { "_0": ["png", "jpeg", "heic"] } }` — each value arrives as `$MENUMATE_VARIANT`
 - **Submenu (one item per file in a dir)**: `"variants": { "directoryListing": { "_0": "Templates" } }`
 - **Custom icon image**: `"icon": { "imageFile": { "_0": "myicon.png" } }` (file must be in `Icons/`)
+- **Custom icon tint** (in-app preview only): `"iconHue": "blue"` — one of `gray/blue/green/orange/purple/red/teal/pink`
 - **Restrict to a type**: `"matching": { "targets": "files", "utis": ["public.image"] }`
+- **Limit by selection count**: inside `matching`, `"maxSelectionCount": 1` = show only for a single item; `"minSelectionCount": 2` = only for multi-select; set both equal for "exactly N"
 
 Field reference:
 - `id` — any UUID (e.g. `uuidgen`). Must be unique. (Presets use deterministic UUIDs; user actions don't care.)
 - `icon.symbol._0` — an SF Symbol name (e.g. `doc.on.doc`, `terminal`, `photo`, `bolt`).
 - `matching.targets` — `any` (any selection) · `files` · `folders` · `container` (right-click empty folder background). `container` is mutually exclusive with the other three.
 - `matching.utis` — `[]` = no restriction, else UTType list (`public.image`, `public.movie`, `public.text`, `com.adobe.pdf`, …); matches by UTType conformance.
+- `matching.maxSelectionCount` / `matching.minSelectionCount` — optional Ints gating the action by how many items are selected (omit = no bound); evaluated against the live selection at right-click time.
 - `placement` — `topLevel` or `submenu` (groups under a "MenuMate ▸" submenu).
 - `sortOrder` — integer; use a high value (e.g. 100+) to append at the end.
 - `isEnabled` — `true` to show it immediately.

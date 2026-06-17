@@ -5,3 +5,5 @@ DerivedData/
 xcuserdata/
 Local.xcconfig
 .DS_Store
+*.dmg
+appcast.xml.tmp

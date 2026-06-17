@@ -104,6 +104,6 @@ git tag v1.0.0 && git push origin v1.0.0
 - [ ] `SUPublicEDKey` in `project.yml` is your real Sparkle public key (not the placeholder).
 - [ ] Re-enable auto-update: set `SUEnableAutomaticChecks` to `true` (or remove it) in `project.yml` — it's `false` pre-release so dev builds don't pop a "can't check for updates" error on launch.
 - [ ] Version bumped in `App/Info.plist`.
-- [ ] All eight GitHub secrets set (for CI).
+- [ ] All nine GitHub secrets set (for CI).
 - [ ] `xcrun stapler validate build/release/MenuMate-<v>.dmg` passes.
 - [ ] Gatekeeper check on a clean machine: `spctl -a -vvv -t install MenuMate-<v>.dmg`.
