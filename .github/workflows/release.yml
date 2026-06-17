@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write   # create releases + push appcast.xml
 
+# Serialize releases so two tags can't race the appcast commit/push to main.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: macos-14

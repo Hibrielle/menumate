@@ -30,6 +30,10 @@ SPARKLE_BIN="$ROOT/build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 echo "==> Generating project"
 make gen >/dev/null
 
+echo "==> Resolving Swift packages (ensures the Sparkle CLI tools are present)"
+xcodebuild -project MenuMate.xcodeproj -scheme MenuMate \
+  -derivedDataPath "$ROOT/build" -resolvePackageDependencies >/dev/null
+
 # Inject the release version into the build so Info.plist (and thus Sparkle's update
 # comparison) matches the tag. CFBundleVersion uses a monotonic commit count.
 BUILD_NUMBER="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)"
@@ -69,6 +73,11 @@ else
   xcrun notarytool submit "$DMG" --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
 fi
 xcrun stapler staple "$DMG"
+
+echo "==> Verifying notarization / Gatekeeper"
+xcrun stapler validate "$DMG"   # fatal: fail the release if the ticket isn't stapled
+spctl --assess --type open --context context:primary-signature -v "$DMG" || \
+  echo "    ⚠️ spctl assessment was not 'accepted' — inspect before publishing"
 
 echo "==> Sparkle: signing update"
 if [[ -n "${SPARKLE_ED_PRIVATE_KEY:-}" ]]; then

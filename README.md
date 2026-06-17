@@ -113,6 +113,10 @@ Then enable the Finder extension (onboarding links you to System Settings, or
 A signed/notarized release build is produced by `make release` / the GitHub release workflow —
 see [docs/RELEASING.md](docs/RELEASING.md).
 
+> **Running an unsigned/ad-hoc local build:** a `make build` (or a dmg built without a Developer ID)
+> isn't notarized, so Gatekeeper will block it. Either right-click the app → **Open** (then confirm),
+> or clear the quarantine flag: `xattr -dr com.apple.quarantine /path/to/MenuMate.app`.
+
 ## Script environment contract
 
 Every script (preset or pack) is run under `/bin/zsh` with:
