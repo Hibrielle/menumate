@@ -69,6 +69,22 @@ final class AppState: ObservableObject {
         pushSnapshot()
     }
 
+    /// 增量改动入口:先吸收外部(AI/CLI/手动)对 config.json 的改动,再在【最新】配置上施加本次改动并落盘。
+    /// 用于编辑器/列表等单点修改,避免「用陈旧内存态整份覆盖外部改动」的竞争(评审 arch-1)。
+    /// 对同一动作的并发改动仍是后写者胜,但其它动作的外部增删改不会被吞掉。
+    func mutateConfig(_ change: (inout MenuConfig) -> Void) {
+        if configMTime() > lastConfigMTime, let loaded = try? store.load() {
+            config = loaded
+            packManager.reload()
+        }
+        change(&config)
+        try? store.save(config)
+        lastConfigMTime = configMTime()
+        configError = nil
+        pruneOrphanIcons()
+        pushSnapshot()
+    }
+
     /// 外部进程(AI / CLI / 手动)改了 config.json 时重读并广播,无需重启 App。
     /// 解析失败(如写到一半)忽略,保留当前内存态,下个心跳再试。
     func reloadFromDisk() {

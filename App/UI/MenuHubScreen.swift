@@ -498,44 +498,44 @@ struct ScreenMenuHub: View {
     /// 按可见序列的相对顺序重排,再把全部顶层动作连续重编 sortOrder。
     private func commitReorder(_ order: [MenuAction]) {
         guard !order.isEmpty else { return }
-        var config = state.config
-        let orderIDs = order.map(\.id)
-        // 全部顶层动作(含当前不可见的),按原 sortOrder。
-        var allTop = config.actions
-            .filter { $0.placement == .topLevel }
-            .sorted { $0.sortOrder < $1.sortOrder }
-        // 把可见动作按新顺序重新落位,隐藏动作保持相对位置。
-        var queue = orderIDs
-        allTop = allTop.map { a in
-            if orderIDs.contains(a.id) {
-                let nextID = queue.removeFirst()
-                return config.actions.first(where: { $0.id == nextID }) ?? a
+        state.mutateConfig { config in
+            let orderIDs = order.map(\.id)
+            // 全部顶层动作(含当前不可见的),按原 sortOrder。
+            var allTop = config.actions
+                .filter { $0.placement == .topLevel }
+                .sorted { $0.sortOrder < $1.sortOrder }
+            // 把可见动作按新顺序重新落位,隐藏动作保持相对位置。
+            var queue = orderIDs
+            allTop = allTop.map { a in
+                if orderIDs.contains(a.id) {
+                    let nextID = queue.removeFirst()
+                    return config.actions.first(where: { $0.id == nextID }) ?? a
+                }
+                return a
             }
-            return a
-        }
-        for (i, a) in allTop.enumerated() {
-            if let idx = config.actions.firstIndex(where: { $0.id == a.id }) {
-                config.actions[idx].sortOrder = i
+            for (i, a) in allTop.enumerated() {
+                if let idx = config.actions.firstIndex(where: { $0.id == a.id }) {
+                    config.actions[idx].sortOrder = i
+                }
             }
         }
-        state.update(config)
     }
 
     private func setOwnEnabled(_ value: Bool, _ action: MenuAction) {
-        var config = state.config
-        guard let idx = config.actions.firstIndex(where: { $0.id == action.id }) else { return }
-        config.actions[idx].isEnabled = value
-        state.update(config)
+        state.mutateConfig { config in
+            guard let idx = config.actions.firstIndex(where: { $0.id == action.id }) else { return }
+            config.actions[idx].isEnabled = value
+        }
     }
 
     private func saveAction(_ saved: MenuAction) {
-        var config = state.config
-        if let idx = config.actions.firstIndex(where: { $0.id == saved.id }) {
-            config.actions[idx] = saved
-        } else {
-            config.actions.append(saved)
+        state.mutateConfig { config in
+            if let idx = config.actions.firstIndex(where: { $0.id == saved.id }) {
+                config.actions[idx] = saved
+            } else {
+                config.actions.append(saved)
+            }
         }
-        state.update(config)
     }
 
     private func addAction() {
@@ -550,10 +550,10 @@ struct ScreenMenuHub: View {
 
     private func deleteAction(_ action: MenuAction) {
         // 从配置移除该动作(自有动作彻底删除;预设删除靠 MMSeededPresetKeys 墓碑"粘住",
-        // 不会下次启动被补回,可用「恢复出厂预设」找回)。脚本文件保留;孤儿图标由 update() 的 GC 清理。
-        var config = state.config
-        config.actions.removeAll { $0.id == action.id }
-        state.update(config)
+        // 不会下次启动被补回,可用「恢复出厂预设」找回)。脚本文件保留;孤儿图标由 mutateConfig 的 GC 清理。
+        state.mutateConfig { config in
+            config.actions.removeAll { $0.id == action.id }
+        }
         selection = nil   // ensureSelection 兜底重选
     }
 
