@@ -40,6 +40,7 @@ struct ScreenMenuHub: View {
     @State private var filter: Int = 0          // 0 全部 / 1 仅 MenuMate / 2 仅系统
     @State private var simContext: Int = 0       // 0 图片 / 1 文件 / 2 文件夹 / 3 空白处
     @State private var selection: HubSelection?
+    @State private var showDeclutter = false
 
     // 自定义拖拽重排状态(不用系统 DnD,避免「+」拷贝光标、提供抬起+让位动画)
     @State private var dragID: UUID?            // 正在拖的顶层动作
@@ -88,6 +89,11 @@ struct ScreenMenuHub: View {
         }
         .onChange(of: filter) { _ in ensureSelection() }
         .onChange(of: simContext) { _ in ensureSelection() }
+        .sheet(isPresented: $showDeclutter) {
+            DeclutterSheet(servicesManager: servicesManager, extensionManager: extensionManager) {
+                showDeclutter = false
+            }
+        }
     }
 
     // MARK: 左栏
@@ -134,6 +140,9 @@ struct ScreenMenuHub: View {
                         MMButton(String(localized: "menu.addAction"), systemImage: "plus", size: .sm) { addAction() }
                         MMButton(String(localized: "menu.browsePacks"), systemImage: "shippingbox", size: .sm) {
                             state.settingsTab = .packs
+                        }
+                        MMButton(String(localized: "declutter.button"), systemImage: "wand.and.sparkles", size: .sm) {
+                            showDeclutter = true
                         }
                         Spacer(minLength: 0)
                         Text(String(localized: "menu.realMenuAppearance"))
