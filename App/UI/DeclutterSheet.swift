@@ -28,6 +28,13 @@ struct DeclutterSheet: View {
         return selectedServices.intersection(shownSvc).count + selectedExts.intersection(Set(thirdPartyExts.map(\.id))).count
     }
 
+    // 应用后:扩展可能被宿主抢回(stuck,election 仍是 .use)→ 不算成功。响应式从实况重算,
+    // 不把乐观快照当成功数(评审 DECL-1/2)。
+    private var rejectedExts: [ManagedExtension] {
+        lastExts.filter { rec in extensionManager.extensions.contains { $0.id == rec.id && $0.info.election == .use } }
+    }
+    private var hiddenCount: Int { max(0, lastServices.count + lastExts.count - rejectedExts.count) }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 11) {
@@ -89,9 +96,18 @@ struct DeclutterSheet: View {
             Rectangle().fill(MMColor.separator).frame(height: 0.5)
             HStack(spacing: 10) {
                 if applied {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(MMColor.green)
-                    Text(String(format: String(localized: "declutter.result"), lastServices.count + lastExts.count))
-                        .font(.system(size: 12))
+                    Image(systemName: rejectedExts.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(rejectedExts.isEmpty ? MMColor.green : MMColor.orange)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(format: String(localized: "declutter.result"), hiddenCount))
+                            .font(.system(size: 12))
+                        if !rejectedExts.isEmpty {
+                            Text(String(format: String(localized: "declutter.rejectedCount"), rejectedExts.count))
+                                .font(.system(size: 10)).foregroundStyle(MMColor.red)
+                        } else if let err = servicesManager.lastError {
+                            Text(err).font(.system(size: 10)).foregroundStyle(MMColor.red).lineLimit(1).truncationMode(.tail)
+                        }
+                    }
                     Spacer(minLength: 0)
                     if !lastServices.isEmpty || !lastExts.isEmpty {
                         MMButton(String(localized: "declutter.undo"), size: .sm) { undo() }
@@ -172,14 +188,14 @@ struct DeclutterSheet: View {
         }
         lastServices = changedSvc
         lastExts = changedExt
-        if !changedSvc.isEmpty { servicesManager.restartFinder() }
+        if !changedSvc.isEmpty || !changedExt.isEmpty { servicesManager.restartFinder() }
         applied = true
     }
 
     private func undo() {
         for s in lastServices { servicesManager.setEnabled(true, for: s) }
         for e in lastExts { extensionManager.setEnabled(true, for: e) }
-        if !lastServices.isEmpty { servicesManager.restartFinder() }
+        if !lastServices.isEmpty || !lastExts.isEmpty { servicesManager.restartFinder() }
         lastServices = []
         lastExts = []
         applied = false

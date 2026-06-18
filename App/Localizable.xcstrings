@@ -5248,6 +5248,22 @@
           }
         }
       }
+    },
+    "declutter.rejectedCount": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d rejected by their app — open System Settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 项被其所属 App 拒绝——可去系统设置处理"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
