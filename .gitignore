@@ -7,3 +7,4 @@ Local.xcconfig
 .DS_Store
 *.dmg
 appcast.xml.tmp
+docs/superpowers/
