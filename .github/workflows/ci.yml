@@ -18,6 +18,15 @@ jobs:
       - name: Test preset scripts (deterministic behaviour)
         run: zsh scripts/test-presets.sh
 
+      - name: Test pack import and update with isolated storage
+        run: python3 scripts/test-pack-manager.py
+
+      - name: Test execution history with isolated storage
+        run: python3 scripts/test-execution-history.py
+
+      - name: Test config failures and interrupted pack transactions
+        run: python3 scripts/test-storage.py
+
       - name: Generate project (project.yml)
         run: |
           brew install xcodegen

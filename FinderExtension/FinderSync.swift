@@ -81,7 +81,7 @@ class FinderSync: FIFinderSync {
             context = .items(urls)
         }
         let input = MenuBuildInput(config: snap.config, context: context, heartbeatFresh: true,
-                                   variantListings: snap.variantListings)
+                                   variantListings: snap.variantListings, language: snap.language ?? LocalizedText.language)
         let specs = MenuBuilder.build(input)
         guard !specs.isEmpty else { return nil }
         pendingRequests.removeAll()

@@ -22,10 +22,12 @@ targets:
     platform: macOS
     sources:
       - path: App
-        excludes: ["PresetScripts/**"]
+        excludes: ["PresetScripts/**", "ActionExamples/**"]
       - path: App/PresetScripts
         buildPhase: resources
         optional: true
+      - path: App/ActionExamples
+        buildPhase: resources
     dependencies:
       - package: MenuMateCore
       - package: Sparkle

@@ -37,20 +37,22 @@ public struct ExtensionSnapshot: Codable, Equatable {
     public var variantListings: [UUID: [String]]
     /// 自定义图片图标字节：key = action.id.uuidString，value = 该动作图标的 base64(PNG)。
     /// 仅对 `.imageFile` 动作填充；扩展零文件访问，靠这份字节直接画菜单图标。
+    public var language: String?
     public var iconImages: [String: String]
 
     public init(config: MenuConfig, variantListings: [UUID: [String]],
-                iconImages: [String: String] = [:]) {
+                iconImages: [String: String] = [:], language: String? = nil) {
         self.config = config; self.variantListings = variantListings
-        self.iconImages = iconImages
+        self.iconImages = iconImages; self.language = language
     }
 
     enum CodingKeys: String, CodingKey {
-        case config, variantListings, iconImages
+        case config, variantListings, iconImages, language
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        language = try c.decodeIfPresent(String.self, forKey: .language)
         config = try c.decode(MenuConfig.self, forKey: .config)
         variantListings = try c.decode([UUID: [String]].self, forKey: .variantListings)
         // 向后兼容：旧快照无 iconImages 字段，解码落空字典

@@ -12,13 +12,15 @@ public struct MenuItemSpec: Equatable {
 }
 
 public struct MenuBuildInput {
+    public var language: String
     public var config: MenuConfig
     public var context: MatchContext
     public var heartbeatFresh: Bool
     public var variantListings: [UUID: [String]]   // directoryListing 类动作的预解析结果
 
     public init(config: MenuConfig, context: MatchContext, heartbeatFresh: Bool,
-                variantListings: [UUID: [String]]) {
+                variantListings: [UUID: [String]], language: String = LocalizedText.language) {
+        self.language = language
         self.config = config; self.context = context
         self.heartbeatFresh = heartbeatFresh; self.variantListings = variantListings
     }
@@ -55,6 +57,7 @@ public enum MenuBuilder {
     }
 
     private static func spec(for action: MenuAction, input: MenuBuildInput) -> MenuItemSpec? {
+        let localizedTitle = action.title(in: input.language)
         let symbol: String?
         if case .symbol(let s) = action.icon { symbol = s } else { symbol = nil }   // imageFile 图标渲染推迟到 v2；v1 仅 SF Symbol
         let variantValues: [String]?
@@ -73,9 +76,11 @@ public enum MenuBuilder {
                              // paths 由 FinderSync 消费方在派发前回填选中路径（见 Task 13）
                              request: ActionRequest(actionID: action.id, variant: $0, paths: []))
             }
-            return MenuItemSpec(title: action.title, symbol: symbol, request: nil, children: children)
+            return MenuItemSpec(title: localizedTitle, symbol: symbol, request: nil, children: children)
         }
-        return MenuItemSpec(title: action.title, symbol: symbol,
+        let title = action.interface != nil && !localizedTitle.hasSuffix("…") && !localizedTitle.hasSuffix("...")
+            ? localizedTitle + "…" : localizedTitle
+        return MenuItemSpec(title: title, symbol: symbol,
                             // paths 由 FinderSync 消费方在派发前回填选中路径（见 Task 13）
                             request: ActionRequest(actionID: action.id, variant: nil, paths: []))
     }

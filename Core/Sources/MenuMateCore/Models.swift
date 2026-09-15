@@ -92,11 +92,15 @@ public struct MenuAction: Codable, Identifiable, Equatable, Sendable {
     }
     public var id: UUID
     public var title: String
+    public var localizedTitles: [String: String]?
+    public var displayTitle: String { title(in: LocalizedText.language) }
+    public func title(in language: String) -> String { LocalizedText.resolve(title, translations: localizedTitles, language: language) }
     public var icon: IconSpec
     public var kind: Kind
     public var matching: MatchRule
     public var placement: Placement
     public var variants: VariantSource?
+    public var interface: ActionInterface?
     public var presetKey: String?     // 出厂预设标识；用户自建为 nil
     public var packID: String?        // nil=自有/预设；非 nil=来自该扩展包，脚本只读
     public var packRepo: String?      // owner/repo，用于「打开仓库主页」
@@ -107,10 +111,10 @@ public struct MenuAction: Codable, Identifiable, Equatable, Sendable {
     public init(id: UUID, title: String, icon: IconSpec, kind: Kind, matching: MatchRule,
                 placement: Placement, variants: VariantSource? = nil, presetKey: String? = nil,
                 packID: String? = nil, packRepo: String? = nil, iconHue: String? = nil,
-                isEnabled: Bool, sortOrder: Int) {
-        self.id = id; self.title = title; self.icon = icon; self.kind = kind
+                isEnabled: Bool, sortOrder: Int, interface: ActionInterface? = nil, localizedTitles: [String: String]? = nil) {
+        self.id = id; self.title = title; self.localizedTitles = localizedTitles; self.icon = icon; self.kind = kind
         self.matching = matching; self.placement = placement
-        self.variants = variants; self.presetKey = presetKey
+        self.variants = variants; self.presetKey = presetKey; self.interface = interface
         self.packID = packID; self.packRepo = packRepo; self.iconHue = iconHue
         self.isEnabled = isEnabled; self.sortOrder = sortOrder
     }

@@ -29,9 +29,6 @@ struct GeneralTab: View {
                                 Text(String(localized: "general.launchAtLogin"))
                                     .font(.system(size: 13))
                                     .foregroundStyle(MMColor.label)
-                                Text(String(localized: "general.launchAtLoginDesc"))
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(MMColor.label3)
                             }
                             Spacer(minLength: 0)
                             MMSwitch($loginItemEnabled, scale: 0.78)
@@ -79,7 +76,7 @@ struct GeneralTab: View {
                     }
 
                     // 外部工具(默认终端 / 编辑器)——喂给「在终端打开 / 用编辑器打开」预设。
-                    MMGroup(header: String(localized: "general.externalTools"), footer: String(localized: "general.externalToolsFooter")) {
+                    MMGroup(header: String(localized: "general.externalTools")) {
                         toolRow(title: String(localized: "general.defaultTerminal"),
                                 current: terminalID,
                                 candidates: AppDetect.installed(AppDetect.terminalCandidates),

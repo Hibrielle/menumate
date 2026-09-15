@@ -4,6 +4,14 @@ import MenuMateCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static let extensionBundleID = "com.menumate.app.FinderExtension"
+    static let showSettingsNotification = Notification.Name("MenuMateShowSettings")
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            NotificationCenter.default.post(name: Self.showSettingsNotification, object: nil)
+        }
+        return true
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Notifier.requestAuthorizationOnce()

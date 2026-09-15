@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<style>
+:root{color-scheme:light dark;font:13px -apple-system,BlinkMacSystemFont,sans-serif;color:light-dark(#252529,#f1f1f3);background:light-dark(#fff,#28282d)}
+*{box-sizing:border-box}body{margin:0;padding:22px}h1{font-size:18px;margin:0 0 5px}p,small{color:light-dark(#666670,#b5b5bf);line-height:1.6}
+#files{margin:12px 0 18px;padding:10px;background:light-dark(#f2f4f8,#34343d);border-radius:8px;overflow-wrap:anywhere}
+label{display:block;margin:16px 0 7px}input,select,button{font:inherit}select{display:block;width:100%;padding:7px;border:1px solid light-dark(#d4d4dd,#585863);border-radius:6px;background:light-dark(#fff,#34343d);color:inherit}input[type=range]{width:100%;accent-color:light-dark(#0871dc,#91bdff)}output{float:right}small{display:block;font-size:11px;margin-top:5px}
+.remember{display:flex;align-items:center;gap:6px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:22px}button{padding:7px 15px;border:1px solid light-dark(#d4d4dd,#585863);border-radius:6px;background:light-dark(#f4f4f6,#36363d);color:inherit;cursor:pointer}
+#run{background:light-dark(#0871dc,#91bdff);color:light-dark(#fff,#142439);border:0}button:disabled{opacity:.5;cursor:default}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px ui-monospace,monospace;background:light-dark(#f2f4f8,#34343d);padding:12px;border-radius:7px}
+</style></head><body>
+<h1 data-i18n="title">Convert images</h1><small data-i18n="subtitle">Keep originals and create copies</small>
+<div id="files"></div>
+<label for="format" data-i18n="format">Output format</label>
+<select id="format"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="tiff">TIFF</option></select>
+<small data-i18n="formatHint">JPEG does not preserve transparency. Animated and multipage images export a single frame/page.</small>
+<div id="jpegOptions" hidden><label for="quality"><span data-i18n="quality">JPEG quality</span><output id="qualityValue">80 / 100</output></label><input id="quality" type="range" min="10" max="100" value="80"></div>
+<label for="output" data-i18n="output">Output location</label><select id="output"><option value="same" data-i18n="same">Next to the originals</option><option value="subfolder" data-i18n="subfolder">Converted Images subfolder</option></select>
+<small data-i18n="outputHint">Append “-converted”; number existing filenames automatically.</small>
+<label class="remember"><input type="checkbox" id="remember" checked><span data-i18n="remember">Use these options next time</span></label>
+<pre id="result" hidden></pre>
+<div class="actions"><button id="cancel" type="button" data-i18n="cancel">Cancel</button><button id="run" type="button" data-i18n="run">Convert images</button></div>
+<script>
+const bridge=window.menumate, ctx=bridge.context;
+const zh=String(ctx.locale||'en').toLowerCase().startsWith('zh');
+const messages={
+ en:{title:'Convert images',subtitle:'Keep originals and create copies',format:'Output format',formatHint:'JPEG does not preserve transparency. Animated and multipage images export a single frame/page.',quality:'JPEG quality',output:'Output location',same:'Next to the originals',subfolder:'Converted Images subfolder',outputHint:'Append “-converted”; number existing filenames automatically.',remember:'Use these options next time',cancel:'Cancel',run:'Convert images',running:'Converting…',done:'Done',success:'Conversion complete',failed:'Execution failed'},
+ zh:{title:'图片格式转换',subtitle:'保留原图，生成副本',format:'目标格式',formatHint:'JPEG 不保留透明背景；动图和多页图片仅导出单帧／单页。',quality:'JPEG 质量',output:'输出位置',same:'与原图同目录',subfolder:'原目录下的“转换图片”文件夹',outputHint:'文件名追加“-转换”，遇到重名自动编号。',remember:'下次沿用本次选项',cancel:'取消',run:'开始转换',running:'正在转换…',done:'完成',success:'转换完成',failed:'执行失败'}
+};
+const t=zh?messages.zh:messages.en;
+document.documentElement.lang=zh?'zh-Hans':'en';
+document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t[el.dataset.i18n];});
+const format=document.getElementById('format'), quality=document.getElementById('quality'), output=document.getElementById('output');
+document.getElementById('files').textContent=(zh?ctx.files.length+' 张图片：':ctx.files.length+' image'+(ctx.files.length===1?'':'s')+': ')+ctx.files.map(f=>f.name).join(zh?'、':', ');
+format.value=['png','jpeg','tiff'].includes(ctx.parameters.format)?ctx.parameters.format:'png';
+quality.value=ctx.parameters.quality||80; output.value=ctx.parameters.output||'same';
+function showFormat(){document.getElementById('jpegOptions').hidden=format.value!=='jpeg';}
+function showQuality(){document.getElementById('qualityValue').textContent=quality.value+' / 100';}
+showFormat();showQuality();format.addEventListener('change',showFormat);quality.addEventListener('input',showQuality);
+document.getElementById('cancel').addEventListener('click',()=>bridge.cancel());
+document.getElementById('run').addEventListener('click',()=>{
+ document.getElementById('run').disabled=true;document.getElementById('cancel').disabled=true;
+ document.getElementById('run').textContent=t.running;
+ bridge.submit({format:format.value,quality:Number(quality.value),output:output.value},document.getElementById('remember').checked);
+});
+window.addEventListener('menumate:result',event=>{
+ const r=event.detail, result=document.getElementById('result');result.hidden=false;
+ result.textContent=(r.exitCode===0&&!r.timedOut?t.success:t.failed)+'\n'+(r.stdout||r.stderr);
+ document.getElementById('run').hidden=true;document.getElementById('cancel').disabled=false;document.getElementById('cancel').textContent=t.done;
+});
+</script></body></html>

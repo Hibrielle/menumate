@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ShellResult: Equatable {
+public struct ShellResult: Equatable, Sendable {
     public let exitCode: Int32
     public let stdout: String
     public let stderr: String
@@ -157,6 +157,9 @@ public enum ShellRunner {
     public static func runScript(_ spec: ScriptSpec, paths: [String], variant: String?,
                                  scriptBase: URL, cwd: URL?,
                                  extraEnv: [String: String] = [:]) -> ShellResult {
+        guard (1...3600).contains(spec.timeoutSeconds) else {
+            return ShellResult(exitCode: -1, stdout: "", stderr: "Timeout must be between 1 and 3600 seconds.", timedOut: false)
+        }
         // Contract env is applied AFTER extraEnv so it always wins.
         var env = extraEnv
         env["MENUMATE_PATHS"] = paths.joined(separator: "\n")

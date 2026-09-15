@@ -7,7 +7,9 @@ final class ActionRunner: ActionRunning {
     /// 执行环境契约的非选中相关部分(模板/数据目录 + 用户选的终端/编辑器)。
     /// 抽出来供真实执行与编辑器「试运行」共用,保证两者环境一致、不漂移。
     static func contractEnv() -> [String: String] {
-        var env = ["MENUMATE_TEMPLATES": AppPaths.templatesDirectory().path,
+        var env = ["MENUMATE_INPUT": "{}",
+                   "MENUMATE_LOCALE": Bundle.main.preferredLocalizations.first ?? "en",
+                   "MENUMATE_TEMPLATES": AppPaths.templatesDirectory().path,
                    "MENUMATE_DATA": AppPaths.dataDirectory().path]
         if let term = AppPrefs.terminalBundleID { env["MENUMATE_TERMINAL"] = term }
         if let editor = AppPrefs.editorBundleID { env["MENUMATE_EDITOR"] = editor }
@@ -25,40 +27,59 @@ final class ActionRunner: ActionRunning {
 
     @MainActor
     func run(action: MenuAction, variant: String?, urls: [URL]) {
-        let title = action.title
+        runWithResult(action: action, variant: variant, urls: urls) { _ in }
+    }
+
+    @MainActor
+    func runWithResult(action: MenuAction, variant: String?, urls: [URL],
+                       environment: [String: String] = [:], cwdOverride: URL? = nil,
+                       recordExecution: Bool = true,
+                       completion: @escaping @MainActor (ShellResult) -> Void) {
+        guard !AppState.shared.storageRecoveryRequired else {
+            completion(ShellResult(exitCode: -1, stdout: "", stderr: String(localized: "runtime.storageBlocked"), timedOut: false))
+            return
+        }
+        PackUsage.retain(action.packID)
+        let title = action.displayTitle
         let kind = action.kind
         let paths = urls.map(\.path)
-        let cwd = Self.workingDirectory(for: urls)
+        let cwd = cwdOverride ?? Self.workingDirectory(for: urls)
         let scriptBase = AppPaths.configDirectory()
-        let extraEnv = Self.contractEnv()
+        let extraEnv = Self.contractEnv().merging(environment) { _, override in override }
 
         // 串行队列：保证动作按派发顺序执行（cut 必先于 paste 写完 cutbuffer），
         // 且不占用 Swift 协作线程池（ShellRunner 同步阻塞最长到 timeoutSeconds）。
         // 代价：队头阻塞——一个 60s 的转换会延后后续动作，对 v1 来说这种可预测性是可接受的。
         Self.queue.async {
-            let outcome = Self.execute(kind: kind, variant: variant, paths: paths,
-                                       scriptBase: scriptBase, cwd: cwd, extraEnv: extraEnv)
+            let started = ProcessInfo.processInfo.systemUptime
+            let result = Self.executeRaw(kind: kind, variant: variant, paths: paths,
+                                         scriptBase: scriptBase, cwd: cwd, extraEnv: extraEnv)
+            let record = ExecutionRecord(title: title, paths: paths, variant: variant, result: result,
+                                         duration: ProcessInfo.processInfo.systemUptime - started)
             Task { @MainActor in
-                ExecutionLog.shared.append(title: title, outcome: outcome)
-                if case .failure(let message) = outcome { Notifier.showFailure(title, message) }
+                PackUsage.release(action.packID)
+                if recordExecution {
+                    ExecutionLog.shared.append(record)
+                    if !record.success {
+                        let message = result.timedOut ? String(localized: "editor.testRunTimedOut")
+                            : "exit \(result.exitCode): \(result.stderr.isEmpty ? result.stdout : result.stderr)"
+                        Notifier.showFailure(title, message)
+                    }
+                }
+                completion(result)
             }
         }
     }
 
-    private static func execute(kind: MenuAction.Kind, variant: String?, paths: [String],
-                                scriptBase: URL, cwd: URL?, extraEnv: [String: String]) -> ExecutionOutcome {
+    private static func executeRaw(kind: MenuAction.Kind, variant: String?, paths: [String],
+                                   scriptBase: URL, cwd: URL?, extraEnv: [String: String]) -> ShellResult {
         switch kind {
         case .runScript(let spec):
-            let r = ShellRunner.runScript(spec, paths: paths, variant: variant,
-                                          scriptBase: scriptBase, cwd: cwd, extraEnv: extraEnv)
-            if r.timedOut { return .failure(message: String(format: String(localized: "runtime.timeout"), spec.timeoutSeconds)) }
-            if r.exitCode != 0 { return .failure(message: "exit \(r.exitCode): \(r.stderr)") }
-            // stdout 首行作为成功摘要（脚本环境契约）
-            let summary = r.stdout.split(separator: "\n").first.map(String.init)
-            return .success(summary: summary)
+            return ShellRunner.runScript(spec, paths: paths, variant: variant,
+                                         scriptBase: scriptBase, cwd: cwd, extraEnv: extraEnv)
         case .openWith(let bundleID):
-            let r = ShellRunner.run("/usr/bin/open", ["-b", bundleID] + paths, timeout: 15)
-            return r.exitCode == 0 ? .success(summary: nil) : .failure(message: r.stderr)
+            return ShellRunner.run("/usr/bin/open", ["-b", bundleID] + paths, timeout: 15)
         }
     }
+
 }

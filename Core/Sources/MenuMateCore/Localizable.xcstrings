@@ -80,6 +80,166 @@
           }
         }
       }
+    },
+    "test.unsupportedType": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No built-in sample can satisfy this file type."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前没有能匹配该文件类型的内置样本。"
+          }
+        }
+      }
+    },
+    "test.invalidCount": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Generate between 1 and 20 sample items."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "样本数量必须在 1–20 之间。"
+          }
+        }
+      }
+    },
+    "test.sampleMismatch": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The generated samples do not satisfy the action’s selection rules."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生成的样本不满足此动作的类型或数量条件。"
+          }
+        }
+      }
+    },
+    "test.folderType": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件夹"
+          }
+        }
+      }
+    },
+    "test.appType": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用包"
+          }
+        }
+      }
+    },
+    "test.unsupportedVariantDirectory": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This action uses a custom submenu directory. Generated trial runs currently support only the standard Templates directory; your files will not be used."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此动作使用自定义子菜单目录。临时样本试运行目前仅支持标准 Templates 目录，不会使用你的真实文件。"
+          }
+        }
+      }
+    },
+    "storage.invalidJournal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pack recovery record is invalid. Backups have been preserved."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扩展包恢复记录无效，已保留备份。"
+          }
+        }
+      }
+    },
+    "storage.invalidPackKey": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pack installation path is invalid."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扩展包安装路径无效。"
+          }
+        }
+      }
+    },
+    "storage.pendingRecovery": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An interrupted pack operation must be recovered first."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先恢复上次中断的扩展包操作。"
+          }
+        }
+      }
+    },
+    "storage.configurationChanged": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuration changed during this operation. Please try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作期间配置已被修改，请重试。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

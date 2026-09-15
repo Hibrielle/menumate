@@ -1,49 +1,35 @@
 import Foundation
 import MenuMateCore
 
-enum ExecutionOutcome {
-    case success(summary: String?)
-    case failure(message: String)
-}
-
-struct ExecutionRecord: Codable, Identifiable {
-    let id: UUID
-    let date: Date
-    let title: String
-    let success: Bool
-    let detail: String?
-}
-
 @MainActor
 final class ExecutionLog: ObservableObject {
     static let shared = ExecutionLog()
     @Published private(set) var records: [ExecutionRecord] = []
-    private let fileURL = AppPaths.configDirectory().appendingPathComponent("execution-log.json")
-    private let cap = 50
+    @Published private(set) var storageError: String?
+    private let store: ExecutionLogStore
+    private var unreadableHistory = false
 
-    private init() {
-        if let data = try? Data(contentsOf: fileURL),
-           let loaded = try? JSONDecoder().decode([ExecutionRecord].self, from: data) {
-            records = loaded
+    init(directory: URL = AppPaths.configDirectory()) {
+        store = ExecutionLogStore(directory: directory)
+        do { records = try store.load() }
+        catch {
+            unreadableHistory = true
+            storageError = String(format: String(localized: "execLog.loadError"), error.localizedDescription)
         }
     }
 
-    func append(title: String, outcome: ExecutionOutcome) {
-        let record: ExecutionRecord
-        switch outcome {
-        case .success(let summary):
-            record = ExecutionRecord(id: UUID(), date: Date(), title: title, success: true,
-                                     detail: summary.map { String($0.prefix(500)) })
-        case .failure(let message):
-            record = ExecutionRecord(id: UUID(), date: Date(), title: title, success: false,
-                                     detail: String(message.prefix(500)))
-        }
-        records = Array(([record] + records).prefix(cap))
-        if let data = try? JSONEncoder().encode(records) { try? data.write(to: fileURL, options: .atomic) }
+    func append(_ record: ExecutionRecord) {
+        records = Array(([record] + records).prefix(ExecutionLogStore.capacity))
+        // Keep new results visible without overwriting an unreadable history file.
+        guard !unreadableHistory else { return }
+        do { try store.save(records); storageError = nil }
+        catch { storageError = String(format: String(localized: "execLog.saveError"), error.localizedDescription) }
     }
 
     func clear() {
-        records = []
-        try? FileManager.default.removeItem(at: fileURL)
+        do {
+            try store.save([])
+            records = []; storageError = nil; unreadableHistory = false
+        } catch { storageError = String(format: String(localized: "execLog.saveError"), error.localizedDescription) }
     }
 }

@@ -65,7 +65,7 @@ enum PresetSeeder {
     /// (要找回用「恢复出厂预设」)。返回需要写盘的新 config;无新增返回 nil。
     static func mergeNewPresets(into config: MenuConfig) -> MenuConfig? {
         let ud = UserDefaults.standard
-        var everSeeded = Set(ud.stringArray(forKey: seededKeysDefault) ?? [])
+        let everSeeded = Set(ud.stringArray(forKey: seededKeysDefault) ?? [])
         let inConfig = Set(config.actions.compactMap(\.presetKey))
         let missing = MenuConfig.defaultSeed().actions.filter {
             guard let key = $0.presetKey else { return false }
@@ -73,9 +73,6 @@ enum PresetSeeder {
         }
         // 基线:凡当前在配置里的预设都标记为已见——首启时这会把全部出厂键纳入墓碑,
         // 使日后删除任意预设都能"粘住"(不被自动补回)。再并入这次新补的键。
-        everSeeded.formUnion(inConfig)
-        everSeeded.formUnion(missing.compactMap(\.presetKey))
-        ud.set(Array(everSeeded), forKey: seededKeysDefault)
 
         guard !missing.isEmpty else { return nil }
         var config = config
@@ -86,6 +83,13 @@ enum PresetSeeder {
             config.actions.append(action)
         }
         return config
+    }
+
+    /// Record migrations only after config.json was successfully saved.
+    static func recordSeededPresets(in config: MenuConfig) {
+        var keys = Set(UserDefaults.standard.stringArray(forKey: seededKeysDefault) ?? [])
+        keys.formUnion(config.actions.compactMap(\.presetKey))
+        UserDefaults.standard.set(Array(keys), forKey: seededKeysDefault)
     }
 
     /// 恢复出厂:覆盖全部预设脚本 + 重置配置中的预设项(保留用户自建动作)。
@@ -104,9 +108,9 @@ enum PresetSeeder {
         let custom = config.actions.filter { $0.presetKey == nil }
         config.actions = MenuConfig.defaultSeed().actions + custom
         // 找回被删除的预设:把墓碑重置为全部出厂键(此刻它们都已回到 config)。
-        UserDefaults.standard.set(MenuConfig.defaultSeed().actions.compactMap(\.presetKey),
-                                  forKey: seededKeysDefault)
-        state.update(config)
+        if state.update(config) {
+            UserDefaults.standard.set(MenuConfig.defaultSeed().actions.compactMap(\.presetKey), forKey: seededKeysDefault)
+        }
     }
 
     /// 恢复单条预设:重新落该预设的出厂脚本 + 把该动作重置为出厂态(保留它当前的位置与启用状态)。

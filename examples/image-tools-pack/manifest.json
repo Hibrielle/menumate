@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 2,
+  "name": "Image Tools",
+  "author": "MenuMate",
+  "description": "JPEG compression and image conversion, each with its own local HTML dialog.",
+  "icon": "photo.on.rectangle",
+  "actions": [
+    {
+      "id": "compress-jpeg",
+      "title": "图片压缩",
+      "icon": "photo",
+      "script": "actions/compress.zsh",
+      "targets": "files",
+      "utis": [
+        "public.jpeg"
+      ],
+      "placement": "topLevel",
+      "interface": {
+        "entry": "ui/compress.html",
+        "width": 500,
+        "height": 600
+      },
+      "localizedTitles": {
+        "en": "Compress JPEG images",
+        "zh-Hans": "图片压缩"
+      }
+    },
+    {
+      "id": "convert-image",
+      "title": "图片格式转换",
+      "icon": "arrow.triangle.2.circlepath",
+      "script": "actions/convert.zsh",
+      "targets": "files",
+      "utis": [
+        "public.jpeg",
+        "public.png",
+        "public.tiff",
+        "com.compuserve.gif",
+        "public.heic"
+      ],
+      "placement": "topLevel",
+      "interface": {
+        "entry": "ui/convert.html",
+        "width": 500,
+        "height": 530
+      },
+      "localizedTitles": {
+        "en": "Convert images",
+        "zh-Hans": "图片格式转换"
+      }
+    }
+  ],
+  "localizedNames": {
+    "en": "Image Tools",
+    "zh-Hans": "图片工具"
+  },
+  "localizedDescriptions": {
+    "en": "JPEG compression and image conversion, each with its own local HTML dialog.",
+    "zh-Hans": "JPEG 压缩和图片格式转换，各有独立的本地 HTML 弹窗。"
+  }
+}

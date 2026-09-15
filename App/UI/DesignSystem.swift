@@ -246,22 +246,39 @@ struct MMButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(size.font)
-                }
-                Text(title)
-                    .font(size.font)
-            }
-            .foregroundStyle(foreground)
-            .padding(.horizontal, kind == .plain ? size.plainHPad : size.hPad)
-            .padding(.vertical, size.vPad)
-            .background(background)
-            .clipShape(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous))
-            .overlay(strokeOverlay)
+            MMButtonLabel(title: title, systemImage: systemImage, kind: kind, size: size)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct MMButtonLabel: View {
+    let title: String
+    var systemImage: String?
+    var kind: MMButtonKind = .normal
+    var size: MMButtonSize = .sm
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(size.font)
+            }
+            Text(title)
+                .font(size.font)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .foregroundStyle(foreground)
+        .padding(.horizontal, kind == .plain ? size.plainHPad : size.hPad)
+        .padding(.vertical, size.vPad)
+        .frame(minHeight: size == .sm ? 26 : 30)
+        .fixedSize(horizontal: true, vertical: true)
+        .background(background)
+        .clipShape(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous))
+        .overlay(strokeOverlay)
+        .opacity(isEnabled ? 1 : 0.45)
     }
 
     private var foreground: Color {
@@ -293,6 +310,34 @@ struct MMButton: View {
         default:
             EmptyView()
         }
+    }
+}
+
+/// A menu that shares its size and chrome with adjacent action buttons.
+struct MMMoreMenu<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        Menu { content } label: {
+            MMButtonLabel(title: String(localized: "menu.more"), systemImage: "ellipsis")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+}
+
+struct MMActionBar<Content: View>: View {
+    var horizontalPadding: CGFloat = 20
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(MMColor.separator).frame(height: 0.5)
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, 10)
+        }
+        .background(MMColor.content)
     }
 }
 

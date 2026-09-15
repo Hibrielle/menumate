@@ -19,6 +19,16 @@ struct SettingsWindow: View {
                 .tabItem { Label(String(localized: "settings.tab.general"), systemImage: "gearshape") }
                 .tag(SettingsTab.general)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let error = state.configError {
+                Banner(error, tone: .red) {
+                    if state.storageRecoveryRequired {
+                        MMButton(String(localized: "runtime.retryRecovery"), size: .sm) { state.reloadFromDisk() }
+                    }
+                }
+                .padding(12)
+            }
+        }
         .frame(minWidth: 760, minHeight: 560)
     }
 }

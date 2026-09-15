@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 2,
+  "name": "Selection Info",
+  "localizedNames": {"en": "Selection Info", "zh-Hans": "所选文件信息"},
+  "description": "Read selected file names and paths without modifying files.",
+  "localizedDescriptions": {
+    "en": "Read selected file names and paths without modifying files.",
+    "zh-Hans": "查看所选文件的名称和路径，不修改文件。"
+  },
+  "actions": [
+    {
+      "id": "list-names",
+      "title": "List file names",
+      "localizedTitles": {"en": "List file names", "zh-Hans": "列出文件名"},
+      "icon": "list.bullet",
+      "script": "actions/names.zsh",
+      "targets": "files"
+    },
+    {
+      "id": "selection-report",
+      "title": "Selected file info",
+      "localizedTitles": {"en": "Selected file info", "zh-Hans": "所选文件信息"},
+      "icon": "doc.text.magnifyingglass",
+      "script": "actions/report.zsh",
+      "targets": "files",
+      "timeoutSeconds": 30,
+      "interface": {"entry": "ui/report.html", "width": 500, "height": 480}
+    }
+  ]
+}

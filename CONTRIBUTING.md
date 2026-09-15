@@ -1,16 +1,22 @@
 # Contributing to MenuMate
 
+English · [简体中文](CONTRIBUTING.zh.md)
+
 Thanks for your interest! MenuMate is a SwiftUI menu-bar app + Finder Sync extension, with a
-pure-logic Swift package at its core.
+shared Swift package for models, matching, storage and test-resource generation.
 
 ## Development setup
 
-Requirements: macOS 13+, Xcode 15+ (String Catalogs), Homebrew (for `xcodegen`).
+Requirements: macOS 13+, Xcode 16+, Homebrew (for `xcodegen`).
 
 ```bash
 make bootstrap   # installs xcodegen, copies Local.xcconfig from the template
 make gen         # project.yml → MenuMate.xcodeproj (the .xcodeproj is git-ignored)
 make test        # runs the MenuMateCore unit tests (swift test)
+make test-presets # deterministic preset-script tests
+make test-packs  # actual pack manager with isolated storage
+make test-history # isolated runner/history integration tests
+make test-storage # config write failures and interrupted pack transactions
 make build       # xcodebuild Debug
 make run         # build + launch
 ```
@@ -66,7 +72,8 @@ clobbering user edits; deleted presets stay deleted (a tombstone in `UserDefault
 ## Commits & PRs
 
 - Branch off `main`; keep commits focused with a clear subject.
-- Run `make test` and `make build` before opening a PR.
+- Run `make test` and `make build` before opening a PR; use `make test-packs` for pack lifecycle changes.
+- Check UI changes in the native app in both languages, appearances and a narrow window. Record unverified cases explicitly.
 - Describe the change and how you verified it. Screenshots help for UI changes.
 
 By contributing you agree your contributions are licensed under the project's MIT License.

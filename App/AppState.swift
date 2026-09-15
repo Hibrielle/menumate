@@ -5,13 +5,21 @@ import MenuMateCore
 final class AppState: ObservableObject {
     static let shared = AppState()
     // ConfigStore 的可变缓存只在主线程访问（本类 @MainActor 持有）
-    let store = ConfigStore(directory: AppPaths.configDirectory())
-    @Published var config: MenuConfig = MenuConfig(schemaVersion: MenuConfig.currentSchemaVersion, actions: [])
+    let store: ConfigStore
+    let packTransaction: PackTransaction
+    @Published private(set) var storageRecoveryRequired = false
+    private var configurationReadable = true
+
+    init(directory: URL = AppPaths.configDirectory(), transaction: PackTransaction? = nil) {
+        store = ConfigStore(directory: directory)
+        packTransaction = transaction ?? PackTransaction(directory: directory)
+    }
+    @Published private(set) var config: MenuConfig = MenuConfig(schemaVersion: MenuConfig.currentSchemaVersion, actions: [])
     @Published var configError: String?
     /// 设置窗当前 Tab(SettingsWindow 绑定;Hub 可设为 .packs 直接跳到扩展包)
     @Published var settingsTab: SettingsTab = .contextMenu
     /// 扩展包数据层：包动作已并入 config，随快照推送；此处只负责导入/审查/启停/更新/卸载。
-    lazy var packManager = PackManager()
+    lazy var packManager = PackManager(appState: { [unowned self] in self })
 
     private var heartbeatTimer: Timer?
     private let listener = ActionListener()
@@ -27,28 +35,28 @@ final class AppState: ObservableObject {
     private var lastAuxSignature = ""
 
     func start() {
-        PresetSeeder.seedIfNeeded()      // 脚本/模板/数据目录落盘（Task 11 实现）
+        // Recover before seeding, loading config, pruning icons or broadcasting actions.
         do {
-            config = try store.load()
-            configError = nil
+            try packTransaction.recover()
+            PresetSeeder.seedIfNeeded()
+            let loaded = try store.load(fresh: true)
+            if !FileManager.default.fileExists(atPath: store.fileURL.path) { try store.save(loaded) }
+            config = loaded
+            configurationReadable = true
+            if let merged = PresetSeeder.mergeNewPresets(into: config), update(merged) {
+                PresetSeeder.recordSeededPresets(in: merged)
+            } else if configError == nil {
+                PresetSeeder.recordSeededPresets(in: config)
+            }
+            migratePresetRenames()
+            if configError == nil { pruneOrphanIcons() }
         } catch {
-            // load() 对缺失文件返回 seed 不抛错，故走到 catch 必是文件存在但解析失败：
-            // 保留损坏文件不覆盖，用 seed 跑内存态，错误留给 UI。
-            config = .defaultSeed()
+            storageRecoveryRequired = packTransaction.needsRecovery
+            configurationReadable = false
+            // A corrupt file or unfinished recovery must never activate seed actions or GC icons.
             configError = String(format: String(localized: "runtime.configLoadError"), error.localizedDescription)
         }
-        // 首启显式落盘 seed：load() 对缺失文件返回 seed 但不写盘，写一份具体文件方便用户查看编辑。
-        if configError == nil, !FileManager.default.fileExists(atPath: store.fileURL.path) {
-            try? store.save(config)
-        }
-        // 升级时补进新增的出厂预设（按 presetKey 判定，追加到末尾，保留用户布局与自建动作）。
-        if configError == nil, let merged = PresetSeeder.mergeNewPresets(into: config) {
-            config = merged
-            try? store.save(config)
-        }
-        migratePresetRenames()
-        pruneOrphanIcons()   // 清理上次会话遗留的孤儿图标
-        lastConfigMTime = configMTime()  // 基线;之后心跳检测外部改动(让 AI/CLI 直接改 config.json 即时生效)
+        lastConfigMTime = configMTime()
 
         packManager.reload()             // 从 Packs/installed.json + config 重建已安装包列表
         startHeartbeat()
@@ -64,48 +72,93 @@ final class AppState: ObservableObject {
         pushSnapshot()
     }
 
-    func update(_ newConfig: MenuConfig) {
-        config = newConfig
-        try? store.save(newConfig)
-        lastConfigMTime = configMTime()   // 标记为本进程写入,避免心跳把自己的写当成外部改动而重载
-        configError = nil
-        pruneOrphanIcons()
-        pushSnapshot()
-    }
-
-    /// 增量改动入口:先吸收外部(AI/CLI/手动)对 config.json 的改动,再在【最新】配置上施加本次改动并落盘。
-    /// 用于编辑器/列表等单点修改,避免「用陈旧内存态整份覆盖外部改动」的竞争(评审 arch-1)。
-    /// 对同一动作的并发改动仍是后写者胜,但其它动作的外部增删改不会被吞掉。
-    func mutateConfig(_ change: (inout MenuConfig) -> Void) {
-        if configMTime() > lastConfigMTime, let loaded = try? store.load() {
-            config = loaded
-            packManager.reload()
-        }
-        change(&config)
-        try? store.save(config)
-        lastConfigMTime = configMTime()
-        configError = nil
-        pruneOrphanIcons()
-        pushSnapshot()
-    }
-
-    /// 外部进程(AI / CLI / 手动)改了 config.json 时重读并广播,无需重启 App。
-    /// 解析失败(JSON 损坏 / 写到一半)时保留当前内存态,但把错误暴露给 UI,并【不】推进
-    /// lastConfigMTime——这样下个心跳还会重试,用户修好文件后能自动恢复。
-    func reloadFromDisk() {
-        let loaded: MenuConfig
+    /// Publish only after persistence succeeds. Failed edits leave the last saved config active.
+    @discardableResult func update(_ newConfig: MenuConfig) -> Bool {
         do {
-            loaded = try store.load()
+            let baseline = config
+            try prepareForMutation()
+            guard baseline == config else { throw PackTransaction.Failure.configurationChanged }
+            try store.save(newConfig, expected: baseline)
+            acceptPersisted(newConfig)
+            return true
         } catch {
-            configError = String(format: String(localized: "runtime.configLoadError"), error.localizedDescription)
-            return
+            reportSaveFailure(error)
+            return false
         }
-        config = loaded
+    }
+
+    @discardableResult func mutateConfig(_ change: (inout MenuConfig) -> Void) -> Bool {
+        do {
+            try prepareForMutation()
+            var candidate = config
+            change(&candidate)
+            try store.save(candidate, expected: config)
+            acceptPersisted(candidate)
+            return true
+        } catch {
+            reportSaveFailure(error)
+            return false
+        }
+    }
+
+    /// PackManager calls this before building a candidate, then commits all three resources together.
+    func prepareForMutation() throws {
+        do {
+            let recovered = try packTransaction.recover()
+            let loaded = try store.load(fresh: true)
+            if recovered || !configurationReadable || loaded != config {
+                configurationReadable = true
+                storageRecoveryRequired = false
+                config = loaded
+                lastConfigMTime = configMTime()
+                packManager.reload()
+            }
+        } catch {
+            configurationReadable = false
+            storageRecoveryRequired = packTransaction.needsRecovery
+            throw error
+        }
+    }
+
+    func commitPack(key: String, replacement: URL?, candidate: MenuConfig, installed: Data, expectedInstalled: Data?) throws {
+        do {
+            try packTransaction.apply(key: key, replacement: replacement, config: candidate,
+                                      installed: installed, expectedConfig: config, expectedInstalled: expectedInstalled)
+            acceptPersisted(candidate)
+        } catch {
+            reportSaveFailure(error)
+            throw error
+        }
+    }
+
+    private func acceptPersisted(_ saved: MenuConfig) {
+        config = saved
+        configurationReadable = true
+        storageRecoveryRequired = false
         configError = nil
         lastConfigMTime = configMTime()
-        packManager.reload()
         pruneOrphanIcons()
         pushSnapshot()
+    }
+
+    private func reportSaveFailure(_ error: Error) {
+        storageRecoveryRequired = packTransaction.needsRecovery
+        configError = String(format: String(localized: "runtime.configSaveError"), error.localizedDescription)
+        if storageRecoveryRequired { pushSnapshot() }
+    }
+
+    /// Also serves as the explicit retry action after a failed recovery/load.
+    func reloadFromDisk() {
+        do {
+            try packTransaction.recover()
+            let loaded = try store.load(fresh: true)
+            acceptPersisted(loaded)
+            packManager.reload()
+        } catch {
+            storageRecoveryRequired = packTransaction.needsRecovery
+            configurationReadable = false
+            configError = String(format: String(localized: "runtime.configLoadError"), error.localizedDescription)
+        }
     }
 
     private func configMTime() -> Date {
@@ -117,14 +170,15 @@ final class AppState: ObservableObject {
     /// 脚本内容由智能 seeder 自动更新,这里只补配置里存的标题/图标。幂等(改完条件不再命中)。
     private func migratePresetRenames() {
         guard configError == nil else { return }
+        var candidate = config
         var changed = false
-        for i in config.actions.indices
-        where config.actions[i].presetKey == "open-enclosing" && config.actions[i].title == "前往所在目录" {
-            config.actions[i].title = "前往上一层级目录"
-            config.actions[i].icon = .symbol("arrow.up")
+        for i in candidate.actions.indices
+        where candidate.actions[i].presetKey == "open-enclosing" && candidate.actions[i].title == "前往所在目录" {
+            candidate.actions[i].title = "前往上一层级目录"
+            candidate.actions[i].icon = .symbol("arrow.up")
             changed = true
         }
-        if changed { try? store.save(config) }
+        if changed { _ = update(candidate) }
     }
 
     /// 清理不再被任何动作引用的自定义图标文件（动作删除 / 换图标 / 放弃导入后的孤儿）。
@@ -143,6 +197,9 @@ final class AppState: ObservableObject {
     }
 
     private func buildSnapshot() -> ExtensionSnapshot {
+        if storageRecoveryRequired {
+            return ExtensionSnapshot(config: MenuConfig(schemaVersion: MenuConfig.currentSchemaVersion, actions: []), variantListings: [:])
+        }
         let listings = MenuBuilder.prepareListings(config: config, base: AppPaths.configDirectory())
         // 自定义图片图标:把缩放后的 PNG base64 随快照带给扩展(扩展零文件访问)。
         var iconImages: [String: String] = [:]
@@ -151,7 +208,7 @@ final class AppState: ObservableObject {
                   let base64 = IconStore.base64PNG(for: fileName) else { continue }
             iconImages[action.id.uuidString] = base64
         }
-        return ExtensionSnapshot(config: config, variantListings: listings, iconImages: iconImages)
+        return ExtensionSnapshot(config: config, variantListings: listings, iconImages: iconImages, language: LocalizedText.language)
     }
 
     private func postSnapshot(_ encoded: String) {
@@ -168,7 +225,7 @@ final class AppState: ObservableObject {
         DistributedNotificationCenter.default().postNotificationName(
             .init(IPC.heartbeatNotification), object: nil, userInfo: nil, deliverImmediately: true)
         // 外部进程改了 config.json(AI/CLI 直接操作数据源)→ 实时重载 + 重推快照,无需重启。
-        if configMTime() > lastConfigMTime { reloadFromDisk(); return }
+        if storageRecoveryRequired || !configurationReadable || configMTime() != lastConfigMTime { reloadFromDisk(); return }
         heartbeatCount += 1
         // 廉价门控:模板/图标目录没变且未到兜底拍,就跳过昂贵的快照重建。
         let sig = auxMTimeSignature()

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Selection Info</title>
+<style>
+:root { color-scheme: light dark; font: 14px -apple-system, sans-serif; }
+body { margin: 24px; } h1 { font-size: 20px; }
+label { display: block; margin: 16px 0; }
+select, button { font: inherit; padding: 6px 12px; }
+#files, pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+#files { max-height: 90px; overflow: auto; }
+pre { max-height: 140px; overflow: auto; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; }
+</style>
+</head>
+<body>
+<h1 id="title">Selection Info</h1>
+<p id="files"></p>
+<label><span id="modeLabel">Output</span>
+  <select id="mode"><option value="names">File names</option><option value="paths">Full paths</option></select>
+</label>
+<label><input id="remember" type="checkbox"> <span id="rememberLabel">Remember this choice</span></label>
+<pre id="result" role="status" aria-live="polite"></pre>
+<div class="actions"><button id="close" type="button">Cancel</button><button id="run" type="button">Run</button></div>
+<script>
+(() => {
+  const bridge = window.menumate;
+  const $ = id => document.getElementById(id);
+  if (!bridge) {
+    $('result').textContent = 'Open this action in MenuMate to run it. 请在 MenuMate 中打开此动作。';
+    $('run').disabled = true;
+    $('close').disabled = true;
+    return;
+  }
+  const ctx = bridge.context;
+  const zh = String(ctx.locale).toLowerCase().startsWith('zh');
+  const t = zh
+    ? {output:'输出', names:'文件名', paths:'完整路径', remember:'记住本次选项', cancel:'取消', run:'运行', running:'运行中…', done:'完成', failure:'执行失败', timeout:'执行超时', close:'关闭'}
+    : {output:'Output', names:'File names', paths:'Full paths', remember:'Remember this choice', cancel:'Cancel', run:'Run', running:'Running…', done:'Done', failure:'Execution failed', timeout:'Timed out', close:'Close'};
+  document.documentElement.lang = zh ? 'zh-Hans' : 'en';
+  $('title').textContent = ctx.title;
+  $('files').textContent = ctx.files.map(file => file.name).join('\n');
+  $('modeLabel').textContent = t.output;
+  $('mode').options[0].textContent = t.names;
+  $('mode').options[1].textContent = t.paths;
+  $('rememberLabel').textContent = t.remember;
+  $('close').textContent = t.cancel;
+  $('run').textContent = t.run;
+  $('mode').value = ['names', 'paths'].includes(ctx.parameters.mode) ? ctx.parameters.mode : 'names';
+  $('close').addEventListener('click', () => bridge.cancel());
+  $('run').addEventListener('click', () => {
+    $('run').disabled = true;
+    $('close').disabled = true;
+    $('result').textContent = t.running;
+    bridge.submit({mode: $('mode').value}, $('remember').checked);
+  });
+  window.addEventListener('menumate:result', ({detail}) => {
+    const status = detail.timedOut ? t.timeout : detail.exitCode === 0 ? t.done : t.failure;
+    $('result').textContent = [status, detail.stdout, detail.stderr].filter(Boolean).join('\n');
+    $('run').hidden = true; // One submission per window; reopen the action for another run.
+    $('close').disabled = false;
+    $('close').textContent = t.close;
+  });
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@
 //
 // 控制程度模型(HANDOFF「核心概念 ●◐○」):
 //   ● 自有/扩展包动作 — 可排序·可编辑·可启停(抓手 + 渐变图标 + 开关)
-//   ◐ 系统服务/快速操作 — 仅可隐藏(控制点 + 线框图标 + 开关)
+//   ◐ 应用服务       — 仅可隐藏(控制点 + 线框图标 + 开关)
 //   ○ 第三方扩展     — 仅整体开关(控制点 + 线框图标 + 开关 + 锁)
 
 import SwiftUI
@@ -37,10 +37,11 @@ struct ScreenMenuHub: View {
     @StateObject private var extensionManager = ExtensionManager()
     @State private var caps = CapabilityProbe.cachedOrUnknown()
 
-    @State private var filter: Int = 0          // 0 全部 / 1 仅 MenuMate / 2 仅系统
-    @State private var simContext: Int = 0       // 0 图片 / 1 文件 / 2 文件夹 / 3 空白处
+    @State private var filter: Int = 0          // 0 全部 / 1 仅 MenuMate / 2 其他来源
+    @State private var previewInput = MenuPreviewInput()
     @State private var selection: HubSelection?
     @State private var showDeclutter = false
+    @State private var searchText = ""
 
     // 自定义拖拽重排状态(不用系统 DnD,避免「+」拷贝光标、提供抬起+让位动画)
     @State private var dragID: UUID?            // 正在拖的顶层动作
@@ -49,9 +50,6 @@ struct ScreenMenuHub: View {
     @State private var liveOrder: [MenuAction] = []   // 拖拽会话内的实时顺序(不落盘)
     @State private var rowHeight: CGFloat = 25        // 行高(由 PreferenceKey 实测校正)
 
-    private var simCtx: SimContext {
-        [SimContext.image, .file, .folder, .empty][simContext]
-    }
     private var showMM: Bool { filter != 2 }
     private var showSys: Bool { filter != 1 }
 
@@ -62,11 +60,6 @@ struct ScreenMenuHub: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let err = state.configError {
-                Banner(err, tone: .red)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-            }
             HStack(spacing: 0) {
                 sidebar
                     .frame(width: 326)
@@ -88,7 +81,7 @@ struct ScreenMenuHub: View {
             ensureSelection()
         }
         .onChange(of: filter) { _ in ensureSelection() }
-        .onChange(of: simContext) { _ in ensureSelection() }
+        .onChange(of: state.config.actions.map(\.id)) { _ in ensureSelection() }
         .sheet(isPresented: $showDeclutter) {
             DeclutterSheet(servicesManager: servicesManager, extensionManager: extensionManager) {
                 showDeclutter = false
@@ -102,18 +95,25 @@ struct ScreenMenuHub: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 9) {
                 HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13))
-                        .foregroundStyle(MMColor.label2)
                     Text(String(localized: "menu.sidebarTitle"))
                         .font(.system(size: 13, weight: .semibold))
                     Spacer(minLength: 0)
-                    Text(String(localized: "menu.dragToSortClickToEdit"))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(MMColor.label3)
                 }
-                Segmented([String(localized: "menu.filterAll"), String(localized: "menu.filterMenuMateOnly"), String(localized: "menu.filterSystemOnly")], selection: $filter)
-                ContextSim(selection: $simContext)
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(MMColor.label2)
+                    TextField(String(localized: "menu.searchPlaceholder"), text: $searchText)
+                        .textFieldStyle(.plain)
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: { Image(systemName: "xmark.circle.fill") }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(String(localized: "menu.clearSearch"))
+                    }
+                }
+                .font(.system(size: 12))
+                .padding(7)
+                .background(MMColor.field, in: RoundedRectangle(cornerRadius: 6))
+                Segmented([String(localized: "menu.filterAll"), String(localized: "menu.filterMenuMateOnly"), String(localized: "menu.filterOtherSources")], selection: $filter)
+                MenuPreviewControls(input: $previewInput)
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
@@ -130,29 +130,22 @@ struct ScreenMenuHub: View {
     }
 
     @ViewBuilder private var footer: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(MMColor.separator).frame(height: 0.5)
-            Group {
-                if filter == 2 {
-                    Legend()
-                } else {
-                    HStack(spacing: 8) {
-                        MMButton(String(localized: "menu.addAction"), systemImage: "plus", size: .sm) { addAction() }
-                        MMButton(String(localized: "menu.browsePacks"), systemImage: "shippingbox", size: .sm) {
-                            state.settingsTab = .packs
-                        }
-                        MMButton(String(localized: "declutter.button"), systemImage: "wand.and.sparkles", size: .sm) {
-                            showDeclutter = true
-                        }
-                        Spacer(minLength: 0)
-                        Text(String(localized: "menu.realMenuAppearance"))
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(MMColor.label3)
+        MMActionBar(horizontalPadding: 12) {
+            HStack(spacing: 8) {
+                MMButton(String(localized: "menu.addActionShort"), systemImage: "plus", size: .sm) { addAction() }
+                    .fixedSize()
+                Spacer(minLength: 0)
+                MMMoreMenu {
+                    Button(String(localized: "dialog.addExample")) {
+                        do {
+                            let action = try ActionExampleInstaller.makeImageAction(sortOrder: (state.config.actions.map(\.sortOrder).max() ?? 0) + 1)
+                            if saveAction(action) { selection = .ownAction(action.id) }
+                        } catch { state.configError = error.localizedDescription }
                     }
+                    Button(String(localized: "menu.browsePacks")) { state.settingsTab = .packs }
+                    Button(String(localized: "declutter.button")) { showDeclutter = true }
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
         }
     }
 
@@ -178,14 +171,15 @@ struct ScreenMenuHub: View {
 
     // MENUMATE 区(●)
     @ViewBuilder private var mmSection: some View {
-        let visible = sortedActions.filter { MenuPreviewVisibility.isVisible($0, in: simCtx) }
+        let visible = matchingActions
         let baseTop = visible.filter { $0.placement == .topLevel }
         let sub = visible.filter { $0.placement == .submenu }
         // 拖拽进行中用会话顺序;否则用真实顺序。
         let top = dragID != nil ? liveOrder.filter { a in baseTop.contains(where: { $0.id == a.id }) } : baseTop
 
         sep
-        SectionCap(String(localized: "menu.sectionMenuMateTopLevel"), hint: String(localized: "menu.hintFullControl"))
+        SectionCap(String(localized: "menu.sectionMenuMateTopLevel"))
+        if visible.isEmpty { emptyHint(String(localized: searchText.isEmpty ? "menu.previewNoMatchingActions" : "menu.searchNoActions")) }
         ForEach(Array(top.enumerated()), id: \.element.id) { idx, action in
             let isDragging = dragID == action.id
             let currentIndex = top.firstIndex(where: { $0.id == action.id }) ?? idx
@@ -260,25 +254,32 @@ struct ScreenMenuHub: View {
             .padding(.leading, 22)
             .padding(.trailing, 6)
         }
+        if case .ownAction(let id) = selection,
+           let action = sortedActions.first(where: { $0.id == id }),
+           matchResult(for: action) != .matched {
+            sep
+            SectionCap(String(localized: "menu.previewSelectedHidden"))
+            actionRow(action, sub: false)
+        }
     }
 
     // 系统服务区(◐) + 第三方扩展区(○)
     @ViewBuilder private var sysSection: some View {
         sep
-        SectionCap(String(localized: "menu.sectionQuickActionsAndServices"), hint: String(localized: "menu.hintHideOnly"))
-        if servicesManager.services.isEmpty {
-            emptyHint(String(localized: "menu.emptyNoManageableServices"))
+        SectionCap(String(localized: "menu.sectionApplicationServices"), hint: String(localized: "menu.hintHideOnly"))
+        if filteredServices.isEmpty {
+            emptyHint(String(localized: searchText.isEmpty ? "menu.emptyNoManageableServices" : "menu.searchNoServices"))
         }
-        ForEach(servicesManager.services) { service in
+        ForEach(filteredServices) { service in
             serviceRow(service)
         }
 
         sep
         SectionCap(String(localized: "menu.sectionOtherExtensions"), hint: String(localized: "menu.hintToggleOnly"))
-        if extensionManager.extensions.isEmpty {
-            emptyHint(String(localized: "menu.emptyNoThirdPartyExtensions"))
+        if filteredExtensions.isEmpty {
+            emptyHint(String(localized: searchText.isEmpty ? "menu.emptyNoThirdPartyExtensions" : "menu.searchNoExtensions"))
         }
-        ForEach(extensionManager.extensions) { ext in
+        ForEach(filteredExtensions) { ext in
             extensionRow(ext)
         }
     }
@@ -300,7 +301,7 @@ struct ScreenMenuHub: View {
             iconSymbol: action.icon.symbolName,
             iconImageName: action.icon.imageFileName,
             hue: hue(for: action),
-            title: action.title.isEmpty ? String(localized: "menu.untitledAction") : action.title,
+            title: action.displayTitle.isEmpty ? String(localized: "menu.untitledAction") : action.displayTitle,
             selected: isSel,
             control: .full,
             glyphMode: false,
@@ -364,11 +365,15 @@ struct ScreenMenuHub: View {
 
     @ViewBuilder private var detail: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                detailPanel
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if case .ownAction = selection {
+                VStack(spacing: 0) { detailPanel }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else {
+                ScrollView {
+                    detailPanel.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: .infinity)
             }
-            .frame(maxHeight: .infinity)
 
             // 系统服务 / 第三方扩展选中时,底部出现维护底栏。
             if isSystemSelection {
@@ -408,6 +413,15 @@ struct ScreenMenuHub: View {
         switch selection {
         case .ownAction(let id):
             if let action = state.config.actions.first(where: { $0.id == id }) {
+                if let message = matchResult(for: action).previewMessage {
+                    Banner(message, tone: .orange)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                } else if !action.isEnabled {
+                    Banner(String(localized: "menu.previewDisabled"), tone: .orange)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                }
                 if action.packID != nil {
                     packPanel(for: action)
                         .id(id)
@@ -482,6 +496,31 @@ struct ScreenMenuHub: View {
 
     // MARK: 行为
 
+    private var matchingActions: [MenuAction] {
+        let context = previewInput.resolved
+        return sortedActions.filter {
+            searchMatches($0.title, $0.displayTitle, $0.localizedTitles?.values.joined(separator: " ") ?? "", $0.packRepo ?? "", $0.presetKey ?? "") &&
+            RuleMatcher.evaluate(rule: $0.matching, context: context) == .matched
+        }
+    }
+
+    private func searchMatches(_ values: String...) -> Bool {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty || values.contains { $0.localizedStandardContains(query) }
+    }
+
+    private var filteredServices: [ManagedService] {
+        servicesManager.services.filter { searchMatches($0.item.menuTitle, $0.item.localizedTitle ?? "", $0.item.bundleID ?? "", $0.item.bundlePath ?? "") }
+    }
+
+    private var filteredExtensions: [ManagedExtension] {
+        extensionManager.extensions.filter { searchMatches($0.displayName, $0.id) }
+    }
+
+    private func matchResult(for action: MenuAction) -> MatchResult {
+        RuleMatcher.evaluate(rule: action.matching, context: previewInput.resolved)
+    }
+
     private func hue(for action: MenuAction) -> AppIconHue {
         // 用户自定义配色优先。
         if let raw = action.iconHue, let h = AppIconHue(rawValue: raw) { return h }
@@ -503,7 +542,7 @@ struct ScreenMenuHub: View {
         PvPackPanel(
             action: action,
             packName: action.packID.flatMap { key in
-                state.packManager.packs.first(where: { $0.key == key })?.manifest.name
+                state.packManager.packs.first(where: { $0.key == key })?.manifest.displayName
             } ?? action.packRepo.map(packName) ?? String(localized: "menu.packFallbackName"),
             onSave: { saveAction($0) })
     }
@@ -548,7 +587,7 @@ struct ScreenMenuHub: View {
         }
     }
 
-    private func saveAction(_ saved: MenuAction) {
+    @discardableResult private func saveAction(_ saved: MenuAction) -> Bool {
         state.mutateConfig { config in
             if let idx = config.actions.firstIndex(where: { $0.id == saved.id }) {
                 config.actions[idx] = saved
@@ -562,18 +601,17 @@ struct ScreenMenuHub: View {
         let new = MenuAction(
             id: UUID(), title: String(localized: "menu.newActionDefaultTitle"), icon: .symbol("bolt"),
             kind: .runScript(ScriptSpec()), matching: MatchRule(),
-            placement: .topLevel, isEnabled: true,
+            placement: .topLevel, isEnabled: false,
             sortOrder: (state.config.actions.map(\.sortOrder).max() ?? 0) + 1)
-        saveAction(new)
-        selection = .ownAction(new.id)
+        if saveAction(new) { selection = .ownAction(new.id) }
     }
 
     private func deleteAction(_ action: MenuAction) {
         // 从配置移除该动作(自有动作彻底删除;预设删除靠 MMSeededPresetKeys 墓碑"粘住",
         // 不会下次启动被补回,可用「恢复出厂预设」找回)。脚本文件保留;孤儿图标由 mutateConfig 的 GC 清理。
-        state.mutateConfig { config in
+        guard state.mutateConfig({ config in
             config.actions.removeAll { $0.id == action.id }
-        }
+        }) else { return }
         selection = nil   // ensureSelection 兜底重选
     }
 
@@ -588,7 +626,7 @@ struct ScreenMenuHub: View {
     private func ensureSelection() {
         if let sel = selection, selectionStillValid(sel) { return }
         if showMM {
-            let visible = sortedActions.filter { MenuPreviewVisibility.isVisible($0, in: simCtx) }
+            let visible = matchingActions
             if let first = visible.first {
                 selection = .ownAction(first.id)
                 return
@@ -610,8 +648,7 @@ struct ScreenMenuHub: View {
     private func selectionStillValid(_ sel: HubSelection) -> Bool {
         switch sel {
         case .ownAction(let id):
-            guard showMM, let a = state.config.actions.first(where: { $0.id == id }) else { return false }
-            return MenuPreviewVisibility.isVisible(a, in: simCtx)
+            return showMM && state.config.actions.contains { $0.id == id }
         case .systemService(let id):
             return showSys && servicesManager.services.contains { $0.id == id }
         case .ownExtension(let id):
@@ -667,12 +704,8 @@ struct SectionCap: View {
                 .font(.system(size: 9.5, weight: .semibold))
                 .tracking(0.4)
                 .foregroundStyle(MMColor.label3)
-            if let hint {
-                Text(hint)
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(MMColor.label4)
-            }
         }
+        .help(hint ?? title)
         .padding(.horizontal, 14)
         .padding(.bottom, 3)
         .padding(.top, 2)
@@ -745,8 +778,11 @@ struct TierRow: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(selected ? Color.white : MMColor.label3)
+                    .help(String(localized: "menu.submenuChevronHelp"))
+                    .accessibilityLabel(String(localized: "menu.hasSubmenu"))
             }
             MMSwitch($isOn, scale: 0.56)
+                .accessibilityLabel(title)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -789,4 +825,3 @@ struct Legend: View {
         }
     }
 }
-

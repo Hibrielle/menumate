@@ -192,11 +192,6 @@ struct OnboardingView: View {
                     Permissions.openAccessibilitySettings()
                 }
             }
-            Text(String(localized: "onboarding.step3.grantHint"))
-                .font(.system(size: 11))
-                .foregroundStyle(MMColor.label3)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
         }
         .padding(.top, 4)
     }

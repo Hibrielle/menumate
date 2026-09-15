@@ -38,23 +38,17 @@ struct PackUpdateAvailable: Equatable {
 /// `cloneUpdate` 的产物:新克隆 + 与本地的逐文件 diff(本期为「按文件给出 old/new 全文 + 变更统计」)。
 struct PackUpdate {
     let key: String
+    let baseSHA: String
     let tempDir: URL
     let newManifest: PackManifest
     let newSHA: String
     let newRepoURL: String
     let newRepo: String
-    let diffsByFile: [FileDiff]      // 脚本(相对路径)的新旧全文,UI 端渲染逐行
+    let diffsByFile: [FileDiff]      // 整个包的文本、摘要、权限与链接变化
     let newScripts: [String: String] // 新动作脚本源码(审查用)
 
-    struct FileDiff: Equatable {
-        let path: String         // 相对仓库根
-        let oldText: String?     // nil = 远端新增
-        let newText: String?     // nil = 远端删除
-        var isAdded: Bool { oldText == nil && newText != nil }
-        var isRemoved: Bool { newText == nil && oldText != nil }
-        var isModified: Bool { oldText != nil && newText != nil && oldText != newText }
-        var isUnchanged: Bool { oldText == newText }
-    }
+    typealias FileDiff = PackFileDiff
+
 }
 
 // MARK: - PackManager
@@ -78,6 +72,8 @@ final class PackManager: ObservableObject {
         case manifestInvalid(String)
         case packNotInstalled(String)
         case notAGitRepo
+        case alreadyInstalled(String)
+        case busy
 
         var errorDescription: String? {
             switch self {
@@ -86,6 +82,8 @@ final class PackManager: ObservableObject {
             case .manifestInvalid(let m): return String(format: String(localized: "packs.errorManifest"), m)
             case .packNotInstalled(let k): return String(format: String(localized: "packs.errorPackNotFound"), k)
             case .notAGitRepo: return String(localized: "packs.errorNotAGitRepo")
+            case .busy: return String(localized: "packs.errorBusy")
+            case .alreadyInstalled(let name): return String(format: String(localized: "packs.errorAlreadyInstalled"), name)
             }
         }
     }
@@ -105,7 +103,12 @@ final class PackManager: ObservableObject {
     // MARK: - Reload (rebuild `packs` from installed.json + config)
 
     func reload() {
-        let records = Self.loadInstalled()
+        let records: [InstalledRecord]
+        do { records = try Self.loadInstalled() }
+        catch {
+            appState().configError = String(format: String(localized: "packs.errorInstalledRead"), error.localizedDescription)
+            return
+        }
         let actions = appState().config.actions
         packs = records.map { rec in
             let mine = actions.filter { $0.packID == rec.key }
@@ -115,7 +118,7 @@ final class PackManager: ObservableObject {
                 enabledCount: mine.filter(\.isEnabled).count,
                 totalCount: mine.count)
         }
-        .sorted { $0.manifest.name.localizedCaseInsensitiveCompare($1.manifest.name) == .orderedAscending }
+        .sorted { $0.manifest.displayName.localizedCaseInsensitiveCompare($1.manifest.displayName) == .orderedAscending }
     }
 
     // MARK: - Import: step 1 — clone (NEVER executes scripts)
@@ -153,13 +156,14 @@ final class PackManager: ObservableObject {
     // MARK: - Import: step 2 — confirm (move into place, inject DISABLED actions)
 
     func confirmImport(_ cloned: ClonedPack) throws {
-        let fm = FileManager.default
+        try appState().prepareForMutation()
+        let registry = try Self.installedSnapshot()
+        // Re-import is not an update: preserve the installed files and user choices.
+        guard !registry.records.contains(where: { $0.key == cloned.key }),
+              !appState().config.actions.contains(where: { $0.packID == cloned.key }) else {
+            throw PackError.alreadyInstalled(cloned.manifest.displayName)
+        }
         let dest = Self.packDir(cloned.key)
-
-        // Move tempDir → Packs/<key>/ (replace if a stale dir exists).
-        try fm.createDirectory(at: Self.packsRoot, withIntermediateDirectories: true)
-        if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
-        try fm.moveItem(at: cloned.tempDir, to: dest)
 
         // Inject actions into config — ALL disabled by default.
         var config = appState().config
@@ -170,50 +174,53 @@ final class PackManager: ObservableObject {
         }
         config.actions.append(contentsOf: newActions)
 
-        // Persist installed.json BEFORE update() so reload() sees the record.
-        var records = Self.loadInstalled().filter { $0.key != cloned.key }
+        // The registry and config are committed with the pack directory before publishing.
+        var records = registry.records.filter { $0.key != cloned.key }
         records.append(InstalledRecord(key: cloned.key, repoURL: cloned.repoURL,
                                        repo: cloned.repo, commitSHA: cloned.commitSHA,
                                        manifest: cloned.manifest))
-        try Self.saveInstalled(records)
-
-        appState().update(config)
+        try appState().commitPack(key: cloned.key, replacement: cloned.tempDir,
+                                  candidate: config, installed: Self.encodeInstalled(records), expectedInstalled: registry.data)
+        discard(tempDir: cloned.tempDir)
         reload()
     }
 
     // MARK: - Enable / disable a single pack action
 
     func setActionEnabled(_ enabled: Bool, actionID: UUID) {
-        var config = appState().config
-        guard let idx = config.actions.firstIndex(where: { $0.id == actionID }),
-              config.actions[idx].packID != nil else { return }
-        guard config.actions[idx].isEnabled != enabled else { return }
-        config.actions[idx].isEnabled = enabled
-        appState().update(config)
+        appState().mutateConfig { config in
+            guard let idx = config.actions.firstIndex(where: { $0.id == actionID }),
+                  config.actions[idx].packID != nil else { return }
+            config.actions[idx].isEnabled = enabled
+        }
         reload()
     }
 
     // MARK: - Uninstall
 
     func uninstall(_ key: String) throws {
+        guard !PackUsage.isBusy(key) else { throw PackError.busy }
+        try appState().prepareForMutation()
+        let registry = try Self.installedSnapshot()
+        let records = registry.records
+        guard records.contains(where: { $0.key == key }) else { throw PackError.packNotInstalled(key) }
         var config = appState().config
         config.actions.removeAll { $0.packID == key }
-        appState().update(config)
-
-        let dir = Self.packDir(key)
-        if FileManager.default.fileExists(atPath: dir.path) {
-            try FileManager.default.removeItem(at: dir)
-        }
-
-        let records = Self.loadInstalled().filter { $0.key != key }
-        try Self.saveInstalled(records)
+        try appState().commitPack(key: key, replacement: nil, candidate: config,
+                                  installed: Self.encodeInstalled(records.filter { $0.key != key }), expectedInstalled: registry.data)
         reload()
     }
 
     // MARK: - Update: check (compare remote HEAD SHA vs local)
 
     func checkUpdate(_ key: String) async -> PackUpdateAvailable? {
-        guard let rec = Self.loadInstalled().first(where: { $0.key == key }) else { return nil }
+        let records: [InstalledRecord]
+        do { records = try Self.loadInstalled() }
+        catch {
+            appState().configError = String(format: String(localized: "packs.errorInstalledRead"), error.localizedDescription)
+            return nil
+        }
+        guard let rec = records.first(where: { $0.key == key }) else { return nil }
         // ls-remote avoids touching the working tree; compares the default-branch HEAD.
         let result = await Self.git(["ls-remote", rec.repoURL, "HEAD"], cwd: nil)
         guard result.exitCode == 0 else { return nil }
@@ -227,7 +234,7 @@ final class PackManager: ObservableObject {
     // MARK: - Update: clone the new revision and diff against local
 
     func cloneUpdate(_ key: String) async throws -> PackUpdate {
-        guard let rec = Self.loadInstalled().first(where: { $0.key == key }) else {
+        guard let rec = try Self.loadInstalled().first(where: { $0.key == key }) else {
             throw PackError.packNotInstalled(key)
         }
         let tempDir = FileManager.default.temporaryDirectory
@@ -241,9 +248,11 @@ final class PackManager: ObservableObject {
         do {
             let (newManifest, newScripts) = try Self.readManifestAndScripts(in: tempDir)
             let newSHA = await Self.shortHEAD(in: tempDir)
-            let diffs = Self.diffScripts(localDir: Self.packDir(key), localManifest: rec.manifest,
-                                         newDir: tempDir, newManifest: newManifest)
-            return PackUpdate(key: key, tempDir: tempDir, newManifest: newManifest, newSHA: newSHA,
+            let installedDirectory = Self.packDir(key)
+            let diffs = try await Task.detached {
+                try PackDirectoryDiff.compare(old: installedDirectory, new: tempDir)
+            }.value
+            return PackUpdate(key: key, baseSHA: rec.commitSHA, tempDir: tempDir, newManifest: newManifest, newSHA: newSHA,
                               newRepoURL: rec.repoURL, newRepo: rec.repo,
                               diffsByFile: diffs, newScripts: newScripts)
         } catch {
@@ -255,44 +264,58 @@ final class PackManager: ObservableObject {
     // MARK: - Update: apply (preserve enabled state by PackAction.id)
 
     func applyUpdate(_ key: String, _ update: PackUpdate) throws {
-        let fm = FileManager.default
+        guard !PackUsage.isBusy(key) else { throw PackError.busy }
+        try appState().prepareForMutation()
+        let registry = try Self.installedSnapshot()
+        guard key == update.key,
+              let previous = registry.records.first(where: { $0.key == key }) else {
+            throw PackError.packNotInstalled(key)
+        }
+        guard previous.commitSHA == update.baseSHA else { throw PackTransaction.Failure.configurationChanged }
         let dest = Self.packDir(key)
 
         // Preserve which pack-action-ids were enabled (match by stable PackAction.id,
         // encoded into the deterministic UUID).
         var config = appState().config
-        var enabledByPackActionID: [String: Bool] = [:]
-        for action in config.actions where action.packID == key {
-            if let paID = Self.packActionID(of: action, packKey: key, manifest: update.newManifest) {
-                enabledByPackActionID[paID] = action.isEnabled
-            }
-        }
-
-        // Swap working tree.
-        try fm.createDirectory(at: Self.packsRoot, withIntermediateDirectories: true)
-        if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
-        try fm.moveItem(at: update.tempDir, to: dest)
+        let existing = config.actions.filter { $0.packID == key }
+        let baseOrder = (config.actions.map(\.sortOrder).max() ?? -1) + 1
 
         // Rebuild this pack's actions from the new manifest:
         // - existing PackAction.id keeps its enabled state, new ones default disabled,
         // - removed remote actions drop out.
         config.actions.removeAll { $0.packID == key }
-        let baseOrder = (config.actions.map(\.sortOrder).max() ?? -1) + 1
         let newActions = update.newManifest.actions.enumerated().map { offset, pa -> MenuAction in
             var a = Self.menuAction(from: pa, packKey: key, repo: update.newRepo,
                                     packDir: dest, sortOrder: baseOrder + offset)
-            a.isEnabled = enabledByPackActionID[pa.id] ?? false
+            if let local = existing.first(where: { $0.id == a.id }) {
+                a.isEnabled = local.isEnabled
+                a.sortOrder = local.sortOrder
+                a.iconHue = local.iconHue
+                if let old = previous.manifest.actions.first(where: { $0.id == pa.id }) {
+                    // Adopt upstream defaults only for fields the user hasn't overridden.
+                    a.localizedTitles = LocalizedText.merging(upstream: pa.localizedTitles, previous: old.localizedTitles, local: local.localizedTitles)
+                    if local.title != old.title {
+                        a.title = local.title
+                        if local.localizedTitles == nil { a.localizedTitles = nil }
+                    }
+                    if local.placement != old.placement { a.placement = local.placement }
+                } else {
+                    a.title = local.title
+                    a.localizedTitles = local.localizedTitles
+                    a.placement = local.placement
+                }
+            }
             return a
         }
         config.actions.append(contentsOf: newActions)
 
         // Update installed.json (new SHA + manifest snapshot).
-        var records = Self.loadInstalled().filter { $0.key != key }
+        var records = registry.records.filter { $0.key != key }
         records.append(InstalledRecord(key: key, repoURL: update.newRepoURL, repo: update.newRepo,
                                        commitSHA: update.newSHA, manifest: update.newManifest))
-        try Self.saveInstalled(records)
-
-        appState().update(config)
+        try appState().commitPack(key: key, replacement: update.tempDir,
+                                  candidate: config, installed: Self.encodeInstalled(records), expectedInstalled: registry.data)
+        discard(tempDir: update.tempDir)
         reload()
     }
 
@@ -307,15 +330,6 @@ final class PackManager: ObservableObject {
     /// snapshot rebuilds: derived from packKey + PackAction.id.
     static func actionUUID(packKey: String, packActionID: String) -> UUID {
         UUID.deterministic("pack.\(packKey).\(packActionID)")
-    }
-
-    /// Recover a MenuAction's originating PackAction.id by matching its deterministic UUID.
-    private static func packActionID(of action: MenuAction, packKey: String,
-                                     manifest: PackManifest) -> String? {
-        for pa in manifest.actions where actionUUID(packKey: packKey, packActionID: pa.id) == action.id {
-            return pa.id
-        }
-        return nil
     }
 
     private static func menuAction(from pa: PackAction, packKey: String, repo: String,
@@ -335,7 +349,10 @@ final class PackManager: ObservableObject {
             packID: packKey,
             packRepo: repo,
             isEnabled: false,        // ALWAYS disabled on import.
-            sortOrder: sortOrder)
+            sortOrder: sortOrder,
+            interface: pa.interface.map {
+                ActionInterface(entry: packDir.appendingPathComponent($0.entry).path, width: $0.width, height: $0.height)
+            }, localizedTitles: pa.localizedTitles)
     }
 
     // MARK: - Manifest + script reading
@@ -361,26 +378,20 @@ final class PackManager: ObservableObject {
                 throw PackError.manifestInvalid("script path escapes pack: \(pa.script)")
             }
             let url = dir.appendingPathComponent(pa.script)
-            if let text = try? String(contentsOf: url, encoding: .utf8) {
-                scripts[pa.id] = text
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                throw PackError.manifestInvalid("Cannot read script: \(pa.script)")
+            }
+            scripts[pa.id] = text
+            if let interface = pa.interface {
+                guard PackInspector.resolvesInside(directory: dir, relativePath: interface.entry),
+                      let html = try? String(contentsOf: dir.appendingPathComponent(interface.entry), encoding: .utf8),
+                      html.utf8.count <= 1_048_576 else {
+                    throw PackError.manifestInvalid("Cannot read local HTML: \(interface.entry)")
+                }
+                scripts[pa.id] = text + "\n\n----- HTML: \(interface.entry) -----\n" + html
             }
         }
         return (manifest, scripts)
-    }
-
-    private static func diffScripts(localDir: URL, localManifest: PackManifest,
-                                    newDir: URL, newManifest: PackManifest) -> [PackUpdate.FileDiff] {
-        // Union of script paths declared by old & new manifests.
-        let oldPaths = Set(localManifest.actions.map(\.script))
-        let newPaths = Set(newManifest.actions.map(\.script))
-        let allPaths = oldPaths.union(newPaths).sorted()
-        return allPaths.map { rel in
-            let oldText = oldPaths.contains(rel)
-                ? try? String(contentsOf: localDir.appendingPathComponent(rel), encoding: .utf8) : nil
-            let newText = newPaths.contains(rel)
-                ? try? String(contentsOf: newDir.appendingPathComponent(rel), encoding: .utf8) : nil
-            return PackUpdate.FileDiff(path: rel, oldText: oldText, newText: newText)
-        }
     }
 
     private static func shortHEAD(in dir: URL) async -> String {
@@ -462,15 +473,19 @@ final class PackManager: ObservableObject {
         let manifest: PackManifest
     }
 
-    private static func loadInstalled() -> [InstalledRecord] {
-        guard let data = try? Data(contentsOf: installedFile) else { return [] }
-        return (try? JSONDecoder().decode([InstalledRecord].self, from: data)) ?? []
+    private static func loadInstalled() throws -> [InstalledRecord] {
+        try installedSnapshot().records
     }
 
-    private static func saveInstalled(_ records: [InstalledRecord]) throws {
-        try FileManager.default.createDirectory(at: packsRoot, withIntermediateDirectories: true)
+    private static func installedSnapshot() throws -> (records: [InstalledRecord], data: Data?) {
+        guard FileManager.default.fileExists(atPath: installedFile.path) else { return ([], nil) }
+        let data = try Data(contentsOf: installedFile)
+        return (try JSONDecoder().decode([InstalledRecord].self, from: data), data)
+    }
+
+    private static func encodeInstalled(_ records: [InstalledRecord]) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(records).write(to: installedFile, options: .atomic)
+        return try encoder.encode(records)
     }
 }

@@ -10,7 +10,8 @@ public final class ConfigStore {
 
     /// 读路径存在两个无害的 TOCTOU 窗口：exists→attributes 间文件被删会抛错（调用方以
     /// try?/seed 兜底）；attributes→read 间被原子替换会以旧 mtime 缓存新内容，下次调用自愈。
-    public func load() throws -> MenuConfig {
+    public func load(fresh: Bool = false) throws -> MenuConfig {
+        if fresh { cache = nil }
         let fm = FileManager.default
         guard fm.fileExists(atPath: fileURL.path) else { return .defaultSeed() }
         let mtime = (try fm.attributesOfItem(atPath: fileURL.path)[.modificationDate] as? Date) ?? .distantPast
@@ -26,11 +27,22 @@ public final class ConfigStore {
         return config
     }
 
-    public func save(_ config: MenuConfig) throws {
-        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(config).write(to: fileURL, options: .atomic)
+    public func save(_ config: MenuConfig, expected: MenuConfig? = nil) throws {
+        try StorageLock.perform(in: fileURL.deletingLastPathComponent()) {
+            guard !PackTransaction(directory: fileURL.deletingLastPathComponent()).needsRecovery else {
+                throw PackTransaction.Failure.pendingRecovery
+            }
+            if let expected {
+                let current: MenuConfig
+                if FileManager.default.fileExists(atPath: fileURL.path) {
+                    current = try JSONDecoder().decode(MenuConfig.self, from: Data(contentsOf: fileURL))
+                } else { current = .defaultSeed() }
+                guard current == expected else { throw PackTransaction.Failure.configurationChanged }
+            }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(config).write(to: fileURL, options: .atomic)
+            cache = nil
+        }
     }
 }

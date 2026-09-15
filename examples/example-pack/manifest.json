@@ -11,7 +11,11 @@
       "icon": "doc.on.doc",
       "script": "actions/copy-basename.zsh",
       "targets": "files",
-      "placement": "topLevel"
+      "placement": "topLevel",
+      "localizedTitles": {
+        "en": "Copy file name (no extension)",
+        "zh-Hans": "复制文件名（无扩展名）"
+      }
     },
     {
       "id": "total-size",
@@ -19,7 +23,11 @@
       "icon": "sum",
       "script": "actions/total-size.zsh",
       "targets": "any",
-      "placement": "topLevel"
+      "placement": "topLevel",
+      "localizedTitles": {
+        "en": "Total selected size",
+        "zh-Hans": "统计所选大小"
+      }
     },
     {
       "id": "convert-image",
@@ -27,10 +35,30 @@
       "icon": "photo",
       "script": "actions/convert-image.zsh",
       "targets": "files",
-      "utis": ["public.image"],
+      "utis": [
+        "public.image"
+      ],
       "placement": "submenu",
-      "variants": { "fixed": ["png", "jpeg", "tiff"] },
-      "timeoutSeconds": 120
+      "variants": {
+        "fixed": [
+          "png",
+          "jpeg",
+          "tiff"
+        ]
+      },
+      "timeoutSeconds": 120,
+      "localizedTitles": {
+        "en": "Convert image to…",
+        "zh-Hans": "转换图片为…"
+      }
     }
-  ]
+  ],
+  "localizedNames": {
+    "en": "MenuMate Example Pack",
+    "zh-Hans": "MenuMate 示例包"
+  },
+  "localizedDescriptions": {
+    "en": "Copy file names, total selected sizes, and convert images.",
+    "zh-Hans": "参考扩展包:复制无扩展名文件名、统计所选大小、转换图片格式。可直接 fork 作为你自己扩展包的模板。"
+  }
 }

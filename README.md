@@ -1,163 +1,183 @@
 # MenuMate
 
-**Take full control of Finder's right-click menu on macOS.**
+**Customize Finder's context menu with editable scripts and optional HTML dialogs.**
 
 English · [简体中文](README.zh.md)
 
-MenuMate is a script-first, open-source (MIT) menu-bar app that lets you add your own
-right-click actions, manage the system menu items other tools can't touch, and install
-community “extension packs” — all without repeating permission prompts. Distributed as a
-Developer ID app (non-sandboxed main app + sandboxed Finder Sync extension); requires
-macOS 13 Ventura+. UI in **English / 简体中文**.
+MenuMate is an open-source macOS menu-bar app. Create file actions, organize when they
+appear, and install community extension packs. The main app executes actions; a Finder
+Sync extension supplies the context menu. macOS 13+ · English / Simplified Chinese · MIT.
 
-<p align="center">
-  <img src="docs/screenshots/menu-hub-en.png" width="760" alt="MenuMate — the whole right-click menu in one place">
-</p>
+This README describes the current source tree. Published releases may not include every
+feature described here.
 
----
+## Screenshots
 
-## Why MenuMate
+Captured from the running macOS app. Action names reflect the local configuration.
 
-Most right-click tools on the Mac (右键超人 / MouseBoost / Service Station …) ship through the
-sandboxed App Store, so they **can only manage menu items they inject themselves**. MenuMate
-ships outside the sandbox (Developer ID), which unlocks things the sandbox makes structurally
-impossible:
+**In Finder** — enabled actions appear in the actual context menu. Image conversion
+expands into format choices (shown on a Chinese-language macOS installation).
 
-| Capability | Sandboxed tools | MenuMate |
-|------------|-----------------|----------|
-| Inject custom script actions | partial | ✓ script-first, fully configurable |
-| Toggle system Quick Actions / Services | ✗ | ✓ via the `pbs` domain |
-| Enable/disable third-party Finder extensions | ✗ | ✓ via `pluginkit` |
-| Install community packs (any git repo) | ✗ | ✓ see the [pack spec](docs/pack-spec.md) |
+![Actual Finder context menu with MenuMate actions and the image conversion submenu](docs/screenshots/finder-menu-current-zh.png)
 
-**The core idea is script-first.** Even the built-ins are editable zsh scripts — a preset *is*
-a factory script you can edit, delete, or restore at any time.
+**Context menu and action editor** — preview matching actions and edit their settings.
 
----
+![MenuMate context menu preview and action editor](docs/screenshots/settings-current-en.jpg)
 
-## Features
+**Extension packs** — expand a pack to enable individual actions and inspect their scripts.
 
-### Script-first custom actions, fully configurable
+![MenuMate extension pack with individual action controls](docs/screenshots/packs-current-en.jpg)
 
-Every action is a zsh script (or an inline snippet, or “open with an app”). Give it a custom
-icon (SF Symbol + tint, or import your own image), and scope it to file types by ticking
-friendly categories (Images / Videos / Audio / PDF / Text / Source code / Archives / Apps) or
-entering raw UTIs.
+## What you can do
 
-<p align="center"><img src="docs/screenshots/editor-en.png" width="420" alt="Action editor"></p>
+- **Organize actions visually.** Preview Image / File / Folder / Empty area contexts, choose
+  a concrete sample type and selection count, or read metadata from real files. Search
+  actions, services and apps. Configure titles, icons, matching rules and placement.
+- **Keep simple actions direct.** Use a zsh file, inline script or Open with App. Actions
+  needing options can open a local HTML page in a native WebView before submitting parameters.
+- **Try generated samples.** Test runs create their own images, documents and folders under
+  MenuMate's data directory. Inspect the generated inputs and results from Open folder.
+- **Install packs.** One Git repository contains one pack with multiple independently
+  enabled actions. Each action can have its own script and HTML page.
+- **Inspect recent executions.** Search by action, selected path or output, filter success
+  and failure, and expand a record to inspect its date, duration, exit code and output.
 
-### Manage the *whole* right-click menu, not just your own items
+The interface follows the macOS language. Edit an action’s **Default name** and expand
+**Localized names** to provide English and Simplified Chinese names. Missing translations
+use the default name. Pack authors can also translate pack names and descriptions in the
+manifest; HTML page translations remain the author’s responsibility.
 
-One screen shows your menu exactly as it appears, with a “simulate target” switch
-(image / file / folder / empty area) so you see what really shows up. Items are grouped by how
-much MenuMate can control them: **●** your own & pack actions (reorder, edit, toggle, delete),
-**◐** system Quick Actions & Services (hide), **○** third-party extensions (toggle).
+## Menu management boundaries
 
-### Switch terminal / editor without editing scripts
+| Item | Current support |
+| --- | --- |
+| MenuMate and pack actions | Enable/disable, matching, placement and ordering; pack execution code is managed through pack updates |
+| Traditional application Services | Manage supported entries exposed through `pbs`; changes may also affect application Services menus |
+| Third-party Finder Sync extensions | Toggle the whole supported extension through `pluginkit` |
+| Built-in Quick Actions such as Rotate, Markup and Remove Background | Not comprehensively managed by the Services list |
+| Preview | Uses the same matcher as MenuMate actions; other apps' menu visibility is decided by Finder |
 
-Pick your default terminal and editor in **General**; the “Open in Terminal / Editor” presets
-honor your choice via injected env vars — no script changes needed.
+Finder Sync availability varies by location, OS version and file provider. This app does
+not control every item in every context menu.
 
-### Community extension packs
+## Build and try
 
-Any conforming git repo is an extension pack. Import by URL; MenuMate clones it **read-only**,
-makes you review every script, and adds the actions **disabled** until you enable them. See the
-[Extension Pack Specification](docs/pack-spec.md) and the [example pack](examples/example-pack/).
+Use macOS 13+, Xcode 16+ and Homebrew for `xcodegen`. The development build uses the signing
+settings in `Local.xcconfig`; release signing and notarization are separate steps.
 
-### Bilingual & no repeating prompts
-
-Full **English / 简体中文** UI (String Catalogs — adding a language is just a translation
-column). And because the extension reads no files and there's no App Group container, MenuMate
-avoids the macOS 14/15 “wants to access data from other apps” nag; the few permissions it does
-need are requested **once** in onboarding.
-
----
-
-## Built-in presets (6 editable scripts)
-
-Deliberately lean — only universal, gap-filling actions that every Mac user benefits from,
-with zero external assumptions. All use built-in macOS CLIs. View/edit under
-**Settings › Context Menu**; restore factory defaults under **Settings › General**.
-
-| Script | Action | What it does |
-|--------|--------|--------------|
-| `copy-path.sh` | Copy Path | `pbcopy`, one path per line for multi-select |
-| `new-file.sh` | New File | submenu of your template folder; `cp` + auto-numbered renames |
-| `cut.sh` / `paste.sh` | Cut / Paste Here | move via a data-dir cutbuffer |
-| `open-parent.sh` / `open-enclosing.sh` | Go Up One Level | navigate up in the current Finder window — or in a browser's upload dialog via `⌘↑` |
-
-Specialized actions ship as **optional extension packs** (install via **Extension Packs ›
-Browse community packs**) — they double as real examples of the pack ecosystem:
-
-- **[Developer Pack](https://github.com/Hibrielle/menumate-dev-pack)** — Open in Terminal / Editor (honors your default terminal/editor).
-- **[Image Pack](https://github.com/Hibrielle/menumate-image-pack)** — Convert Image ▸ png/jpeg/heic/tiff.
-- **[Navigation Pack](https://github.com/Hibrielle/menumate-nav-pack)** — Go to Path… / Go to Clipboard Path (a Finder address bar).
-
----
-
-## Install / build from source
-
-Requirements: macOS 13+, Xcode 15+ (String Catalogs), Homebrew (for `xcodegen`).
-
-```bash
-make bootstrap   # install xcodegen + copy the local signing config
-make gen         # project.yml → MenuMate.xcodeproj (git-ignored)
-make test        # run MenuMateCore unit tests
-make build       # Debug build
-make run         # build + launch
+```sh
+make bootstrap   # install xcodegen and create Local.xcconfig if needed
+make test        # Core tests
+make test-packs  # isolated tests against the actual pack manager
+make test-history # isolated runner/history integration tests
+make test-storage # config write failures and interrupted pack transactions
+make build       # build app and Finder extension
+make run         # build and launch
 ```
 
-Then enable the Finder extension (onboarding links you to System Settings, or
-`pluginkit -e use -i com.menumate.app.FinderExtension`) and grant the one-time permissions.
+The built app is `build/Build/Products/Debug/MenuMate.app`. Open MenuMate from its menu-bar
+icon, choose Settings, and follow onboarding to enable the Finder extension. Reopening the
+app when it has no visible windows also opens Settings. Permission requirements depend on
+which actions you run.
 
-A signed/notarized release build is produced by `make release` / the GitHub release workflow —
-see [docs/RELEASING.md](docs/RELEASING.md).
+From Context Menu, choose an action to edit it. Execution settings and advanced conditions
+are expandable; the bottom action bar stays visible while the form scrolls. General lets
+you choose a terminal/editor and open the scripts/templates folders.
 
-> **Running an unsigned/ad-hoc local build:** a `make build` (or a dmg built without a Developer ID)
-> isn't notarized, so Gatekeeper will block it. Either right-click the app → **Open** (then confirm),
-> or clear the quarantine flag: `xattr -dr com.apple.quarantine /path/to/MenuMate.app`.
+## Write an extension pack
 
-## Script environment contract
+Follow the [extension development guide](docs/extension-development.md) to build script actions,
+add HTML forms, receive selected files, submit parameters, display results, and test/update/publish a pack.
 
-Every script (preset or pack) is run under `/bin/zsh` with:
+The [copyable starter pack](examples/selection-info-pack/) includes a direct action and an HTML
+action. Use the [pack specification](docs/pack-spec.md) for the complete field reference.
 
-| variable / arg | meaning |
-|----------------|---------|
-| `$1 … $n` | absolute paths of selected items (the container path for empty-area actions) |
-| `MENUMATE_PATHS` | all paths, newline-separated |
-| `MENUMATE_VARIANT` | the chosen submenu value (e.g. `jpeg`) |
-| `MENUMATE_TEMPLATES` / `MENUMATE_DATA` | template & data directories |
-| `MENUMATE_TERMINAL` / `MENUMATE_EDITOR` | your chosen default terminal / editor bundle id |
-| `MENUMATE_SCRIPT` | this script's own absolute path (`pack_root="${0:A:h}"` to find sibling files/binaries) |
-| exit `0` | success; first stdout line is the summary |
-| exit non-`0` | failure; stderr surfaced in “Recent Executions” + a notification |
+## Try the HTML example pack
 
-## Architecture
+```sh
+zsh scripts/prepare-image-tools-pack.sh
+```
 
-| Target | What | Sandbox | Responsibility |
-|--------|------|---------|----------------|
-| MenuMate | SwiftUI menu-bar app (`LSUIElement`) | No | config, action execution, system-menu management, packs |
-| FinderExtension | `FIFinderSync` extension | Yes | draw the menu, forward clicks |
-| MenuMateCore | local Swift package | — | models, config codec, rule matching (unit-tested) |
+Paste the printed local Git repository path into **Packs → Import**. Review the source and
+confirm. The **Image Tools** pack contains JPEG compression and image format conversion,
+each with its own HTML dialog. Imported actions start disabled and can be tested individually.
+The example preserves originals and numbers colliding output names.
 
-The extension reads **no files**: the main app pushes a menu snapshot over
-`DistributedNotificationCenter` (chunked). No App Group container — this is what eliminates the
-repeating macOS permission prompts.
+You can also import a conforming repository using `owner/repo`, a Git URL or a local Git
+repository path. A subdirectory inside a repository is not independently importable.
+Browse community packs discovers repositories tagged `menumate-pack`.
 
-## Docs & contributing
+Updates show changes across the pack, including JS/CSS dependencies, the manifest, binary
+summaries and symlinks. Updating preserves local titles/placement when they differ from the
+old defaults, as well as ordering and enabled state. Re-importing an installed pack directs
+you to Check for Updates. Updates and uninstall apply to the entire pack.
 
-- [Extension Pack Specification](docs/pack-spec.md) · [example pack](examples/example-pack/)
-- [Contributing](CONTRIBUTING.md) · [Releasing](docs/RELEASING.md)
-- Core unit tests (127) + preset-script tests + an App/extension compile check run in CI on every push (`.github/workflows/ci.yml`).
+Import, update and uninstall use a recovery journal covering the pack directory, installation
+registry and action configuration. Failed operations restore the previous state; after an
+unexpected app exit, startup rolls back an uncommitted operation or finishes cleanup for a
+committed one. A pack cannot be updated or uninstalled while its actions are queued/running
+or its HTML dialogs are open. If recovery fails, backups remain and actions are paused until
+recovery succeeds.
 
-## Known limitations
+Settings changes reach Finder only after they are saved. Failed saves leave the last saved
+configuration active and show an error; action editors offer Retry save. Corrupt configuration
+and installation records are preserved instead of being silently replaced.
 
-- FinderSync dead zones: `/Applications`, iCloud / File Provider directories don't trigger the
-  extension (system behavior).
-- Injected items always appear at the bottom of the context menu (system limitation).
-- Shortcuts-based Quick Actions can only be hidden (their state lives in a TCC-protected DB).
-- Preset titles are localized at seed time; switching system language later won't re-translate
-  already-stored titles (restore factory presets to re-seed).
+See the [pack specification](docs/pack-spec.md), [script example](examples/example-pack/)
+and [HTML example pack](examples/image-tools-pack/).
+
+## Recent executions
+
+Open **Recent Executions** from the menu-bar icon. Completed normal runs retain up to 50
+records locally in `execution-log.json`. New records include execution duration (excluding
+queue wait), exit code, up to 20 selected paths, the submenu choice, and up to 16,000 characters
+from each output stream. Older records retain the information originally stored; metadata
+cannot be reconstructed retroactively. Test runs show their results in the test window.
+
+Click a record to expand it and use Copy details when troubleshooting. Clearing history asks
+for confirmation and clears all records, including those hidden by filters, without deleting
+selected files or actions. If loading or saving history fails, the window shows an error.
+
+## Script contract and testing boundaries
+
+Scripts run under `/bin/zsh`. Selected paths arrive as positional arguments; prefer `"$@"`
+to preserve spaces and newlines. `MENUMATE_VARIANT` supplies a submenu value,
+`MENUMATE_INPUT` supplies a JSON object from an HTML dialog, and `MENUMATE_LOCALE` supplies
+the app language. Data/templates and terminal/editor preferences are also provided;
+see the [full contract](docs/pack-spec.md#script-environment-contract).
+
+Generated trials use `~/Library/Application Support/MenuMate/TestRuns/<UUID>/` with separate
+Inputs, Data, Templates and Temporary directories. Only standard Templates-based submenus
+currently have generated fixtures; unsupported custom directories fail explicitly.
+
+**Generated samples are not a process sandbox.** Scripts run with your user permissions;
+hardcoded paths, clipboard changes and app automation can still affect the real environment.
+Review pack scripts and pages before enabling them. HTML pages and resources are local;
+remote page URLs are not supported. Interactive packs must explicitly declare schema 2.
+
+## Architecture and contributing
+
+| Component | Responsibility |
+| --- | --- |
+| Main app (SwiftUI / AppKit, non-sandboxed) | Settings, execution, HTML windows, history and pack management |
+| Finder Sync extension (sandboxed) | Receive configuration snapshots, inspect selected-item metadata, build menus and forward clicks |
+| MenuMateCore (Swift package) | Models, matching, codecs, sample generation, pack inspection and history storage |
+
+Configuration snapshots use chunked `DistributedNotificationCenter` messages rather than
+an App Group configuration file. The extension does not execute action scripts.
+
+[Contributing](CONTRIBUTING.md) · [贡献指南](CONTRIBUTING.zh.md) ·
+[Releasing](docs/RELEASING.md) · [中文扩展包规范](docs/pack-spec.zh.md)
+
+CI runs Core tests, preset-script tests, isolated pack-manager/history tests and an app/extension
+build. UI changes also need native visual checks; a successful build is not an end-to-end test.
+
+## Current limitations
+
+Generated media does not cover every
+format or every third-party script contract. Action names without supplied translations remain unchanged
+when the system language changes. See the relevant tests and source before relying
+on a specific edge case in production.
 
 ## License
 

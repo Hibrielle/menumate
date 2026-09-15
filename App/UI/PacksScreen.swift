@@ -159,7 +159,7 @@ struct ScreenPacks: View {
 
     private func uninstall(_ pack: InstalledPack) {
         let alert = NSAlert()
-        alert.messageText = String(format: String(localized: "packs.uninstallConfirmTitle"), pack.manifest.name)
+        alert.messageText = String(format: String(localized: "packs.uninstallConfirmTitle"), pack.manifest.displayName)
         alert.informativeText = String(format: String(localized: "packs.uninstallConfirmBody"), pack.totalCount)
         alert.alertStyle = .warning
         alert.addButton(withTitle: String(localized: "packs.uninstall"))
@@ -194,7 +194,7 @@ struct ScreenPacks: View {
             ?? String(format: String(localized: "packs.scriptReadError"), path)
         // 显示相对仓库根的路径(去掉 packDir 前缀)更友好。
         let display = relativeScript(of: action, pack: pack) ?? path
-        scriptViewer = ScriptViewerTarget(title: action.title, path: display, code: code)
+        scriptViewer = ScriptViewerTarget(title: action.displayTitle, path: display, code: code)
     }
 
     private func relativeScript(of action: MenuAction, pack: InstalledPack) -> String? {
@@ -289,13 +289,17 @@ struct PackRow: View {
                 AppIcon(pack.manifest.icon, size: 30, hue: .teal)
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 7) {
-                        Text(pack.manifest.name)
+                        Text(pack.manifest.displayName)
                             .font(.system(size: 13.5, weight: .semibold))
                             .foregroundStyle(MMColor.label)
                         if update != nil {
                             MMDot()
                             Badge(String(localized: "packs.updateAvailable"), tone: .accent)
                         }
+                    }
+                    if !pack.manifest.displayDescription.isEmpty {
+                        Text(pack.manifest.displayDescription)
+                            .font(.system(size: 11)).foregroundStyle(MMColor.label2).lineLimit(2)
                     }
                     Text("\(pack.repo) · \(pack.commitSHA)")
                         .font(.system(size: 11, design: .monospaced))
@@ -324,7 +328,7 @@ struct PackRow: View {
                             Binding(get: { action.isEnabled },
                                     set: { onSetEnabled($0, action.id) }),
                             scale: 0.62)
-                        Text(action.title)
+                        Text(action.displayTitle)
                             .font(.system(size: 12.5))
                             .foregroundStyle(MMColor.label)
                         Spacer(minLength: 0)

@@ -9,9 +9,13 @@ import Foundation
 /// - `decode` 只解析不校验;`validate()` 做语义校验(schemaVersion 不超前、name/actions 非空、
 ///   每个 action 字段合法、脚本路径限定仓库内相对路径)。
 public struct PackManifest: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
 
     public var schemaVersion: Int
+    public var localizedNames: [String: String]?
+    public var localizedDescriptions: [String: String]?
+    public var displayName: String { LocalizedText.resolve(name, translations: localizedNames) }
+    public var displayDescription: String { LocalizedText.resolve(description ?? "", translations: localizedDescriptions) }
     public var name: String          // 包名(显示)
     public var author: String?
     public var description: String?
@@ -20,9 +24,10 @@ public struct PackManifest: Codable, Equatable, Sendable {
 
     public init(schemaVersion: Int, name: String, author: String? = nil,
                 description: String? = nil, icon: String = "shippingbox",
-                actions: [PackAction]) {
+                actions: [PackAction], localizedNames: [String: String]? = nil, localizedDescriptions: [String: String]? = nil) {
         self.schemaVersion = schemaVersion
         self.name = name
+        self.localizedNames = localizedNames; self.localizedDescriptions = localizedDescriptions
         self.author = author
         self.description = description
         self.icon = icon
@@ -32,12 +37,16 @@ public struct PackManifest: Codable, Equatable, Sendable {
     // MARK: Codable (custom: fill defaults, ignore unknown keys)
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, name, author, description, icon, actions
+        case schemaVersion, name, author, description, icon, actions, localizedNames, localizedDescriptions
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? Self.currentSchemaVersion
+        // An omitted version is the original format, not the newest format.
+        // Interactive packs must explicitly opt into schema 2 so old clients reject them.
+        self.schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        self.localizedNames = try c.decodeIfPresent([String: String].self, forKey: .localizedNames)
+        self.localizedDescriptions = try c.decodeIfPresent([String: String].self, forKey: .localizedDescriptions)
         self.name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
         self.author = try c.decodeIfPresent(String.self, forKey: .author)
         self.description = try c.decodeIfPresent(String.self, forKey: .description)
@@ -67,6 +76,7 @@ public struct PackManifest: Codable, Equatable, Sendable {
         case emptyActionID
         case emptyActionTitle(id: String)
         case invalidScriptPath(id: String, path: String)
+        case interfaceRequiresSchema2
     }
 
     public func validate() throws {
@@ -89,6 +99,14 @@ public struct PackManifest: Codable, Equatable, Sendable {
             guard Self.isSafeRelativeScriptPath(action.script) else {
                 throw ValidationError.invalidScriptPath(id: id, path: action.script)
             }
+            if let interface = action.interface {
+                guard schemaVersion >= 2 else { throw ValidationError.interfaceRequiresSchema2 }
+                guard Self.isSafeRelativeScriptPath(interface.entry),
+                      !interface.entry.contains("://"),
+                      ["html", "htm"].contains((interface.entry as NSString).pathExtension.lowercased()) else {
+                    throw ValidationError.invalidScriptPath(id: id, path: interface.entry)
+                }
+            }
         }
     }
 
@@ -107,6 +125,8 @@ public struct PackManifest: Codable, Equatable, Sendable {
 public struct PackAction: Codable, Equatable, Sendable {
     public var id: String            // 包内稳定标识(更新时按它匹配)
     public var title: String
+    public var localizedTitles: [String: String]?
+    public var displayTitle: String { LocalizedText.resolve(title, translations: localizedTitles) }
     public var icon: String          // SF Symbol,默认 bolt
     public var script: String        // 相对仓库根的脚本路径,如 "actions/x.zsh"
     public var targets: TargetKind
@@ -114,13 +134,15 @@ public struct PackAction: Codable, Equatable, Sendable {
     public var placement: Placement  // 缺省 topLevel
     public var variants: VariantSource?
     public var timeoutSeconds: Int   // nil → 60
+    public var interface: ActionInterface?
 
     public init(id: String, title: String, icon: String = "bolt", script: String,
                 targets: TargetKind = .any, utis: [String] = [],
                 placement: Placement = .topLevel, variants: VariantSource? = nil,
-                timeoutSeconds: Int = 60) {
+                timeoutSeconds: Int = 60, interface: ActionInterface? = nil, localizedTitles: [String: String]? = nil) {
         self.id = id
         self.title = title
+        self.localizedTitles = localizedTitles
         self.icon = icon
         self.script = script
         self.targets = targets
@@ -128,15 +150,17 @@ public struct PackAction: Codable, Equatable, Sendable {
         self.placement = placement
         self.variants = variants
         self.timeoutSeconds = timeoutSeconds
+        self.interface = interface
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, icon, script, targets, utis, placement, variants, timeoutSeconds
+        case id, title, icon, script, targets, utis, placement, variants, timeoutSeconds, interface, localizedTitles
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        self.localizedTitles = try c.decodeIfPresent([String: String].self, forKey: .localizedTitles)
         self.title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
         self.icon = try c.decodeIfPresent(String.self, forKey: .icon) ?? "bolt"
         self.script = try c.decodeIfPresent(String.self, forKey: .script) ?? ""
@@ -145,12 +169,14 @@ public struct PackAction: Codable, Equatable, Sendable {
         self.placement = try c.decodeIfPresent(Placement.self, forKey: .placement) ?? .topLevel
         self.variants = try c.decodeIfPresent(ManifestVariant.self, forKey: .variants)?.source
         self.timeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .timeoutSeconds) ?? 60
+        self.interface = try c.decodeIfPresent(ActionInterface.self, forKey: .interface)
     }
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encode(title, forKey: .title)
+        try c.encodeIfPresent(localizedTitles, forKey: .localizedTitles)
         try c.encode(icon, forKey: .icon)
         try c.encode(script, forKey: .script)
         try c.encode(targets, forKey: .targets)
@@ -158,6 +184,7 @@ public struct PackAction: Codable, Equatable, Sendable {
         try c.encode(placement, forKey: .placement)
         try c.encodeIfPresent(variants.map(ManifestVariant.init), forKey: .variants)
         try c.encode(timeoutSeconds, forKey: .timeoutSeconds)
+        try c.encodeIfPresent(interface, forKey: .interface)
     }
 }
 

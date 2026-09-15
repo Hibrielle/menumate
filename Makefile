@@ -1,4 +1,4 @@
-.PHONY: bootstrap gen test test-presets build run release
+.PHONY: bootstrap gen test test-presets test-packs test-history test-storage build run release
 
 bootstrap:
 	@command -v xcodegen >/dev/null || brew install xcodegen
@@ -13,6 +13,15 @@ test:
 # 预设脚本的确定性行为测试(不依赖 Finder/剪贴板)
 test-presets:
 	@zsh scripts/test-presets.sh
+
+test-packs:
+	python3 scripts/test-pack-manager.py
+
+test-history:
+	python3 scripts/test-execution-history.py
+
+test-storage:
+	python3 scripts/test-storage.py
 
 build: gen
 	xcodebuild -project MenuMate.xcodeproj -scheme MenuMate -configuration Debug \

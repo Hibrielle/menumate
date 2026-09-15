@@ -189,7 +189,7 @@ struct PackImportSheet: View {
             let actions = cloned.manifest.actions
             let sel = actions.first(where: { $0.id == selectedActionID }) ?? actions.first
             VStack(spacing: 0) {
-                SheetHead(step: 2, title: String(format: String(localized: "packImport.reviewTitle"), cloned.manifest.name),
+                SheetHead(step: 2, title: String(format: String(localized: "packImport.reviewTitle"), cloned.manifest.displayName),
                           sub: "\(cloned.repo) · \(cloned.commitSHA)")
                 VStack(spacing: 0) {
                     Banner(String(localized: "packImport.reviewWarning"),
@@ -243,7 +243,7 @@ struct PackImportSheet: View {
                                               lineWidth: 1.3)
                                 .frame(width: 14, height: 14)
                         }
-                        Text(a.title)
+                        Text(a.displayTitle)
                             .font(.system(size: 12, weight: isSel ? .semibold : .regular))
                             .foregroundStyle(isSel ? Color.white : MMColor.label)
                             .lineLimit(1)
@@ -280,7 +280,7 @@ struct PackImportSheet: View {
         if let sel, let cloned {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Text(sel.title).font(.system(size: 13, weight: .semibold))
+                    Text(sel.displayTitle).font(.system(size: 13, weight: .semibold))
                     Badge(matchSummary(sel), tone: .gray)
                     Spacer(minLength: 0)
                     Text(sel.script)
@@ -306,7 +306,10 @@ struct PackImportSheet: View {
                 VStack(spacing: 14) {
                     AppIcon(cloned.manifest.icon, size: 52, hue: .teal)
                     VStack(spacing: 2) {
-                        Text(cloned.manifest.name).font(.system(size: 15, weight: .semibold))
+                        Text(cloned.manifest.displayName).font(.system(size: 15, weight: .semibold))
+                        if !cloned.manifest.displayDescription.isEmpty {
+                            Text(cloned.manifest.displayDescription).font(.system(size: 12)).foregroundStyle(MMColor.label2)
+                        }
                         Text(String(format: String(localized: "packImport.actionsCommit"), cloned.manifest.actions.count, cloned.commitSHA))
                             .font(.system(size: 11.5, design: .monospaced))
                             .foregroundStyle(MMColor.label2)
@@ -504,7 +507,7 @@ struct PackUpdateSheet: View {
 
     @ViewBuilder private var readyView: some View {
         if let update {
-            let changed = update.diffsByFile.filter { $0.isModified }
+            let changed = update.diffsByFile.filter { !$0.isUnchanged }
             let added = update.newAddedActions(currentManifest: pack.manifest)
             VStack(spacing: 0) {
                 updateHead
@@ -514,7 +517,7 @@ struct PackUpdateSheet: View {
                     .padding(.top, 11)
                 ScrollView {
                     VStack(spacing: 10) {
-                        ForEach(Array(update.diffsByFile.enumerated()), id: \.offset) { _, fd in
+                        ForEach(Array(changed.enumerated()), id: \.offset) { _, fd in
                             DiffFileCard(diff: fd)
                         }
                         ForEach(Array(added.enumerated()), id: \.offset) { _, pa in
@@ -567,7 +570,7 @@ struct PackUpdateSheet: View {
         HStack(alignment: .center, spacing: 12) {
             AppIcon(pack.manifest.icon, size: 34, hue: .teal)
             VStack(alignment: .leading, spacing: 2) {
-                Text(String(format: String(localized: "packImport.updateTitle"), pack.manifest.name))
+                Text(String(format: String(localized: "packImport.updateTitle"), pack.manifest.displayName))
                     .font(.system(size: 14.5, weight: .semibold))
                 Text(String(localized: "packImport.updateHeadSub"))
                     .font(.system(size: 11.5))
@@ -604,7 +607,7 @@ struct PackUpdateSheet: View {
 
     private func updateSummary(changed: Int, added: Int) -> String {
         var parts: [String] = []
-        if changed > 0 { parts.append(String(format: String(localized: "packImport.scriptsChanged"), changed)) }
+        if changed > 0 { parts.append(String(format: String(localized: "packImport.filesChanged"), changed)) }
         if added > 0 { parts.append(String(format: String(localized: "packImport.newActionsCount"), added)) }
         if parts.isEmpty { parts.append(String(localized: "packImport.manifestUpdated")) }
         let head = parts.joined(separator: String(localized: "packImport.summarySeparator"))
@@ -663,7 +666,7 @@ struct DiffFileCard: View {
     init(diff: PackUpdate.FileDiff) {
         self.diff = diff
         // 有改动 / 新增的文件默认展开;未变更折叠。
-        _expanded = State(initialValue: diff.isModified || diff.isAdded)
+        _expanded = State(initialValue: !diff.isUnchanged)
     }
 
     private var lines: [DiffLine] { DiffLine.compute(old: diff.oldText, new: diff.newText) }
