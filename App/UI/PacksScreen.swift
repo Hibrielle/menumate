@@ -2,7 +2,7 @@
 //
 // 精确复刻 docs/design/hifi/screen-packs.jsx:
 //   ScreenPacks       顶部操作条 + 分组列表卡(每包一行 PackRow,可展开)/ 空态
-//   PacksHeader       导入 / 浏览社区包 / topic 灰字 / 全部检查更新
+//   PacksHeader       导入 / 浏览社区包 / 全部检查更新
 //   PackRow           展开 chevron + AppIcon + 包名 + 有更新蓝点/徽章 + 仓库·SHA + n/m 已启用
 //   ScreenPacksEmpty  居中插画空态
 //
@@ -231,9 +231,6 @@ struct PacksHeader: View {
         HStack(spacing: 12) {
             MMButton(String(localized: "packs.importPack"), systemImage: "plus", kind: .primary, action: onImport)
             MMButton(String(localized: "packs.browseCommunity"), systemImage: "magnifyingglass", kind: .plain, action: onBrowse)
-            Text("topic: menumate-pack")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(MMColor.label3)
             Spacer(minLength: 0)
             if checking {
                 HStack(spacing: 6) {

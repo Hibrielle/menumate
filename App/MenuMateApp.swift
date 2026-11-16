@@ -13,11 +13,26 @@ struct MenuMateApp: App {
         return true
     }
     private let updater = SPUStandardUpdaterController(startingUpdater: Self.updaterConfigured, updaterDelegate: nil, userDriverDelegate: nil)
+    @ObservedObject private var running = RunningActions.shared
 
     var body: some Scene {
         // 菜单栏下拉 — 对照 docs/design/hifi/screen-misc.jsx MenuBar(系统右键菜单外观)。
         // 用系统原生 MenuBarExtra,项与分隔结构对齐设计稿。
         MenuBarExtra {
+            // 执行中/排队中的动作:长任务(转码等)跑的时候用户至少能看到它还在跑。
+            if !running.entries.isEmpty {
+                Section(String(localized: "menubar.runningSection")) {
+                    ForEach(running.entries) { entry in
+                        if let started = entry.startedAt {
+                            Text(String(format: String(localized: "menubar.runningSince"), entry.title,
+                                        started.formatted(date: .omitted, time: .shortened)))
+                        } else {
+                            Text(String(format: String(localized: "menubar.runningQueued"), entry.title))
+                        }
+                    }
+                }
+                Divider()
+            }
             Button(String(localized: "menubar.openSettings")) {
                 openWindow(id: "settings")
                 NSApp.activate(ignoringOtherApps: true)
@@ -33,7 +48,7 @@ struct MenuMateApp: App {
             Divider()
             Button(String(localized: "menubar.quit")) { NSApp.terminate(nil) }
         } label: {
-            Image(systemName: "contextualmenu.and.cursorarrow")
+            Image(systemName: running.entries.isEmpty ? "contextualmenu.and.cursorarrow" : "hourglass")
                 .accessibilityLabel("MenuMate")
                 .onReceive(NotificationCenter.default.publisher(for: AppDelegate.showSettingsNotification)) { _ in
                     openWindow(id: "settings")
