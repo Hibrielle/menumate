@@ -4209,6 +4209,22 @@
         }
       }
     },
+    "runtime.timedOutHint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timed out. You can raise this action's Timeout in its editor (up to 3600 seconds)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "执行超时。可在动作编辑页把「超时」调大，最长 3600 秒。"
+          }
+        }
+      }
+    },
     "settings.tab.contextMenu": {
       "localizations": {
         "en": {
@@ -5409,18 +5425,34 @@
         }
       }
     },
-    "menu.previewSelectedHidden": {
+    "menu.previewHiddenActions": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Selected action · hidden for this selection"
+            "value": "Hidden for this selection"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在编辑 · 当前对象下未显示"
+            "value": "当前对象下不显示"
+          }
+        }
+      }
+    },
+    "menu.previewHiddenActionsHint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These actions don't appear in the menu for the current preview selection. Click one to edit it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这些动作不会出现在当前预览对象的右键菜单里，点开即可编辑。"
           }
         }
       }

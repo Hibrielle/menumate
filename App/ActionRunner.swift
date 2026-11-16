@@ -61,7 +61,7 @@ final class ActionRunner: ActionRunning {
                 if recordExecution {
                     ExecutionLog.shared.append(record)
                     if !record.success {
-                        let message = result.timedOut ? String(localized: "editor.testRunTimedOut")
+                        let message = result.timedOut ? String(localized: "runtime.timedOutHint")
                             : "exit \(result.exitCode): \(result.stderr.isEmpty ? result.stdout : result.stderr)"
                         Notifier.showFailure(title, message)
                     }

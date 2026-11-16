@@ -112,6 +112,11 @@ private struct RunRow: View {
                             .foregroundStyle(MMColor.label).lineLimit(2)
                         Text(metadata).font(.system(size: 10.5)).foregroundStyle(MMColor.label2)
                             .fixedSize(horizontal: false, vertical: true)
+                        if record.timedOut == true {
+                            Text(String(localized: "runtime.timedOutHint")).font(.system(size: 11))
+                                .foregroundStyle(MMColor.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         if let detail = record.detail, !detail.isEmpty {
                             Text(detail).font(.system(size: 11))
                                 .foregroundStyle(record.success ? MMColor.label2 : MMColor.red)

@@ -172,6 +172,7 @@ struct ScreenMenuHub: View {
     // MENUMATE 区(●)
     @ViewBuilder private var mmSection: some View {
         let visible = matchingActions
+        let hidden = hiddenActions
         let baseTop = visible.filter { $0.placement == .topLevel }
         let sub = visible.filter { $0.placement == .submenu }
         // 拖拽进行中用会话顺序;否则用真实顺序。
@@ -179,7 +180,9 @@ struct ScreenMenuHub: View {
 
         sep
         SectionCap(String(localized: "menu.sectionMenuMateTopLevel"))
-        if visible.isEmpty { emptyHint(String(localized: searchText.isEmpty ? "menu.previewNoMatchingActions" : "menu.searchNoActions")) }
+        if visible.isEmpty && (searchText.isEmpty || hidden.isEmpty) {
+            emptyHint(String(localized: searchText.isEmpty ? "menu.previewNoMatchingActions" : "menu.searchNoActions"))
+        }
         ForEach(Array(top.enumerated()), id: \.element.id) { idx, action in
             let isDragging = dragID == action.id
             let currentIndex = top.firstIndex(where: { $0.id == action.id }) ?? idx
@@ -254,12 +257,15 @@ struct ScreenMenuHub: View {
             .padding(.leading, 22)
             .padding(.trailing, 6)
         }
-        if case .ownAction(let id) = selection,
-           let action = sortedActions.first(where: { $0.id == id }),
-           matchResult(for: action) != .matched {
+        // 不匹配当前预览对象的动作不进菜单预览,但仍列在这里(置灰),否则用户找不到入口编辑。
+        if !hidden.isEmpty {
             sep
-            SectionCap(String(localized: "menu.previewSelectedHidden"))
-            actionRow(action, sub: false)
+            SectionCap(String(localized: "menu.previewHiddenActions"), hint: String(localized: "menu.previewHiddenActionsHint"))
+            ForEach(hidden) { action in
+                actionRow(action, sub: false)
+                    .opacity(selection == .ownAction(action.id) ? 1 : 0.55)
+                    .help(matchResult(for: action).previewMessage ?? "")
+            }
         }
     }
 
@@ -499,9 +505,21 @@ struct ScreenMenuHub: View {
     private var matchingActions: [MenuAction] {
         let context = previewInput.resolved
         return sortedActions.filter {
-            searchMatches($0.title, $0.displayTitle, $0.localizedTitles?.values.joined(separator: " ") ?? "", $0.packRepo ?? "", $0.presetKey ?? "") &&
-            RuleMatcher.evaluate(rule: $0.matching, context: context) == .matched
+            searchMatches($0) && RuleMatcher.evaluate(rule: $0.matching, context: context) == .matched
         }
+    }
+
+    /// 搜索命中但不匹配当前预览对象的动作。
+    private var hiddenActions: [MenuAction] {
+        let context = previewInput.resolved
+        return sortedActions.filter {
+            searchMatches($0) && RuleMatcher.evaluate(rule: $0.matching, context: context) != .matched
+        }
+    }
+
+    private func searchMatches(_ action: MenuAction) -> Bool {
+        searchMatches(action.title, action.displayTitle, action.localizedTitles?.values.joined(separator: " ") ?? "",
+                      action.packRepo ?? "", action.presetKey ?? "")
     }
 
     private func searchMatches(_ values: String...) -> Bool {
@@ -626,8 +644,7 @@ struct ScreenMenuHub: View {
     private func ensureSelection() {
         if let sel = selection, selectionStillValid(sel) { return }
         if showMM {
-            let visible = matchingActions
-            if let first = visible.first {
+            if let first = matchingActions.first ?? hiddenActions.first {
                 selection = .ownAction(first.id)
                 return
             }
