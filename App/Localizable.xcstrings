@@ -422,13 +422,45 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Custom UTIs, separated by commas. Leave empty for all types."
+            "value": "Pick common types, or add UTIs under Advanced. Leave empty for any type."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "自定义 UTI 用逗号分隔；留空表示不限类型。"
+            "value": "勾选常见类型，更多类型可在「高级条件与子菜单」里填写；都不选表示不限类型。"
+          }
+        }
+      }
+    },
+    "editor.customUTI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom types"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义类型"
+          }
+        }
+      }
+    },
+    "editor.customUTIHint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UTIs, comma-separated, e.g. public.movie. Leave empty for any type."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UTI，逗号分隔，例如 public.movie；留空表示不限类型。"
           }
         }
       }
@@ -1809,6 +1841,54 @@
         }
       }
     },
+    "menubar.runningSection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在执行"
+          }
+        }
+      }
+    },
+    "menubar.runningSince": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · started %2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ 开始"
+          }
+        }
+      }
+    },
+    "menubar.runningQueued": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · queued"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 排队中"
+          }
+        }
+      }
+    },
     "menubar.restartFinder": {
       "localizations": {
         "en": {
@@ -1853,6 +1933,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 执行失败"
+          }
+        }
+      }
+    },
+    "notify.actionSucceededTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ finished"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已完成"
+          }
+        }
+      }
+    },
+    "notify.actionSucceededBody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Took %.0f s"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用时 %.0f 秒"
           }
         }
       }
@@ -5453,6 +5565,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "这些动作不会出现在当前预览对象的右键菜单里，点开即可编辑。"
+          }
+        }
+      }
+    },
+    "menu.previewByTarget": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview by right-click target"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按右键对象预览"
           }
         }
       }

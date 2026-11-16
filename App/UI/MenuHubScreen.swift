@@ -39,6 +39,8 @@ struct ScreenMenuHub: View {
 
     @State private var filter: Int = 0          // 0 全部 / 1 仅 MenuMate / 2 其他来源
     @State private var previewInput = MenuPreviewInput()
+    // 按右键对象预览默认收起:收起时列出全部动作,展开后才按模拟对象拆成「显示 / 不显示」。
+    @AppStorage("menuHub.previewExpanded") private var previewExpanded = false
     @State private var selection: HubSelection?
     @State private var showDeclutter = false
     @State private var searchText = ""
@@ -113,7 +115,11 @@ struct ScreenMenuHub: View {
                 .padding(7)
                 .background(MMColor.field, in: RoundedRectangle(cornerRadius: 6))
                 Segmented([String(localized: "menu.filterAll"), String(localized: "menu.filterMenuMateOnly"), String(localized: "menu.filterOtherSources")], selection: $filter)
-                MenuPreviewControls(input: $previewInput)
+                DisclosureGroup(String(localized: "menu.previewByTarget"), isExpanded: $previewExpanded) {
+                    MenuPreviewControls(input: $previewInput)
+                        .padding(.top, 6)
+                }
+                .font(.system(size: 12))
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
@@ -180,8 +186,10 @@ struct ScreenMenuHub: View {
 
         sep
         SectionCap(String(localized: "menu.sectionMenuMateTopLevel"))
-        if visible.isEmpty && (searchText.isEmpty || hidden.isEmpty) {
-            emptyHint(String(localized: searchText.isEmpty ? "menu.previewNoMatchingActions" : "menu.searchNoActions"))
+        if visible.isEmpty && hidden.isEmpty && !searchText.isEmpty {
+            emptyHint(String(localized: "menu.searchNoActions"))
+        } else if visible.isEmpty && searchText.isEmpty && previewExpanded {
+            emptyHint(String(localized: "menu.previewNoMatchingActions"))
         }
         ForEach(Array(top.enumerated()), id: \.element.id) { idx, action in
             let isDragging = dragID == action.id
@@ -503,18 +511,12 @@ struct ScreenMenuHub: View {
     // MARK: 行为
 
     private var matchingActions: [MenuAction] {
-        let context = previewInput.resolved
-        return sortedActions.filter {
-            searchMatches($0) && RuleMatcher.evaluate(rule: $0.matching, context: context) == .matched
-        }
+        sortedActions.filter { searchMatches($0) && matchResult(for: $0) == .matched }
     }
 
     /// 搜索命中但不匹配当前预览对象的动作。
     private var hiddenActions: [MenuAction] {
-        let context = previewInput.resolved
-        return sortedActions.filter {
-            searchMatches($0) && RuleMatcher.evaluate(rule: $0.matching, context: context) != .matched
-        }
+        sortedActions.filter { searchMatches($0) && matchResult(for: $0) != .matched }
     }
 
     private func searchMatches(_ action: MenuAction) -> Bool {
@@ -536,7 +538,8 @@ struct ScreenMenuHub: View {
     }
 
     private func matchResult(for action: MenuAction) -> MatchResult {
-        RuleMatcher.evaluate(rule: action.matching, context: previewInput.resolved)
+        guard previewExpanded else { return .matched }
+        return RuleMatcher.evaluate(rule: action.matching, context: previewInput.resolved)
     }
 
     private func hue(for action: MenuAction) -> AppIconHue {

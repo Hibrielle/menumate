@@ -73,6 +73,8 @@ struct PvEditor: View {
     @State private var variantsFixed = ""
     @State private var variantsDir = ""
     @State private var timeoutSeconds = 60
+    // 执行设置默认展开:脚本和超时是用户最常改的,不该藏起来(issue #2 就找不到超时)。
+    @State private var executionExpanded = true
     @State private var loaded = false
     @State private var pendingCommit: DispatchWorkItem?
 
@@ -134,9 +136,6 @@ struct PvEditor: View {
                         MMField(Binding(get: { action.title }, set: { action.title = $0; commit() }),
                                 placeholder: String(localized: "editor.menuTitle"), width: 200)
                     }
-                    ActionTitleLocalizations(translations: Binding(
-                        get: { action.localizedTitles },
-                        set: { action.localizedTitles = $0; commit() }))
                     PvField(String(localized: "editor.icon")) {
                         IconPickerField(
                             icon: Binding(get: { action.icon },
@@ -149,16 +148,14 @@ struct PvEditor: View {
                         targetPopup
                     }
                     PvField(String(localized: "editor.restrictType"), hint: String(localized: "editor.restrictTypeHint")) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            TypeCategoryChips(utisText: $utisText)
-                            MMField($utisText, mono: true, width: 240)
-                                .onChange(of: utisText) { _ in commit() }
-                        }
+                        // 持久化挂在常驻的 chips 上:自定义 UTI 输入框在「高级」里,折叠时不存在,挂那边会漏存。
+                        TypeCategoryChips(utisText: $utisText)
+                            .onChange(of: utisText) { _ in commit() }
                     }
                     PvField(String(localized: "editor.placement")) {
                         placementPopup
                     }
-                    DisclosureGroup(String(localized: "editor.executionSettings")) {
+                    DisclosureGroup(String(localized: "editor.executionSettings"), isExpanded: $executionExpanded) {
                         VStack(alignment: .leading, spacing: 11) {
                             PvField(String(localized: "editor.type")) {
                                 Segmented([String(localized: "editor.typeScriptFile"), String(localized: "editor.typeInlineScript"), String(localized: "editor.typeOpenWithApp")], selection: $kindChoice)
@@ -200,12 +197,36 @@ struct PvEditor: View {
                                 }
                             }
 
+                            if kindChoice < 2 {
+                                PvField(String(localized: "editor.timeout")) {
+                                    HStack(spacing: 6) {
+                                        TextField("", value: $timeoutSeconds, format: .number)
+                                            .textFieldStyle(.plain)
+                                            .font(.system(size: 13))
+                                            .frame(width: 56)
+                                            .padding(.horizontal, 9).padding(.vertical, 4)
+                                            .background(MMColor.field)
+                                            .clipShape(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous))
+                                            .overlay(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous)
+                                                .stroke(MMColor.border, lineWidth: kHairline))
+                                            .onChange(of: timeoutSeconds) { _ in commit() }
+                                        Text(String(localized: "editor.seconds")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
+                                    }
+                                }
+                            }
+
                             actionInterfaceField
                         }.padding(.top, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     DisclosureGroup(String(localized: "editor.advancedSettings")) {
                         VStack(alignment: .leading, spacing: 11) {
+                            PvField(String(localized: "editor.customUTI"), hint: String(localized: "editor.customUTIHint")) {
+                                MMField($utisText, mono: true, width: 240)
+                            }
+                            ActionTitleLocalizations(translations: Binding(
+                                get: { action.localizedTitles },
+                                set: { action.localizedTitles = $0; commit() }))
                             // 选中数范围对「目录空白处」无意义(那里没有选中项),仅在针对选中项时显示。
                             if targetChoice != 3 {
                                 PvField(String(localized: "editor.selectionCount"), hint: String(localized: "editor.selectionCountHint")) {
@@ -244,23 +265,6 @@ struct PvEditor: View {
                                 PvField(String(localized: "editor.listDirectory"), hint: String(localized: "editor.listDirectoryHint")) {
                                     MMField($variantsDir, mono: true, width: 200)
                                         .onChange(of: variantsDir) { _ in commit() }
-                                }
-                            }
-                            if kindChoice < 2 {
-                                PvField(String(localized: "editor.timeout")) {
-                                    HStack(spacing: 6) {
-                                        TextField("", value: $timeoutSeconds, format: .number)
-                                            .textFieldStyle(.plain)
-                                            .font(.system(size: 13))
-                                            .frame(width: 56)
-                                            .padding(.horizontal, 9).padding(.vertical, 4)
-                                            .background(MMColor.field)
-                                            .clipShape(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous))
-                                            .overlay(RoundedRectangle(cornerRadius: MMRadius.control, style: .continuous)
-                                                .stroke(MMColor.border, lineWidth: kHairline))
-                                            .onChange(of: timeoutSeconds) { _ in commit() }
-                                        Text(String(localized: "editor.seconds")).font(.system(size: 12)).foregroundStyle(MMColor.label2)
-                                    }
                                 }
                             }
                         }.padding(.top, 10)
@@ -921,7 +925,7 @@ struct TypeCategoryChips: View {
         .frame(width: 240, alignment: .leading)
     }
 
-    // 只改 utisText;持久化(commit)由下方 MMField 的 onChange(of: utisText) 统一触发。
+    // 只改 utisText;持久化(commit)由调用处挂在 chips 上的 onChange(of: utisText) 统一触发。
     private func toggle(_ uti: String, to on: Bool) {
         var list = current
         if on { if !list.contains(uti) { list.append(uti) } }

@@ -50,20 +50,28 @@ final class ActionRunner: ActionRunning {
         // 串行队列：保证动作按派发顺序执行（cut 必先于 paste 写完 cutbuffer），
         // 且不占用 Swift 协作线程池（ShellRunner 同步阻塞最长到 timeoutSeconds）。
         // 代价：队头阻塞——一个 60s 的转换会延后后续动作，对 v1 来说这种可预测性是可接受的。
+        // 只跟踪真实执行;试运行有自己的窗口状态。
+        let runningID = recordExecution ? RunningActions.shared.enqueue(title: title) : nil
         Self.queue.async {
+            if let runningID { Task { @MainActor in RunningActions.shared.markStarted(runningID) } }
             let started = ProcessInfo.processInfo.systemUptime
             let result = Self.executeRaw(kind: kind, variant: variant, paths: paths,
                                          scriptBase: scriptBase, cwd: cwd, extraEnv: extraEnv)
+            let duration = ProcessInfo.processInfo.systemUptime - started
             let record = ExecutionRecord(title: title, paths: paths, variant: variant, result: result,
-                                         duration: ProcessInfo.processInfo.systemUptime - started)
+                                         duration: duration)
             Task { @MainActor in
                 PackUsage.release(action.packID)
+                if let runningID { RunningActions.shared.finish(runningID) }
                 if recordExecution {
                     ExecutionLog.shared.append(record)
                     if !record.success {
                         let message = result.timedOut ? String(localized: "runtime.timedOutHint")
                             : "exit \(result.exitCode): \(result.stderr.isEmpty ? result.stdout : result.stderr)"
                         Notifier.showFailure(title, message)
+                    } else if duration >= Notifier.successNoticeThreshold {
+                        // 短动作(复制路径等)成功不打扰;跑得久的用户多半已切走,需要告诉他做完了。
+                        Notifier.showSuccess(title, duration: duration)
                     }
                 }
                 completion(result)
