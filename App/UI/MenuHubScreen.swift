@@ -257,13 +257,13 @@ struct ScreenMenuHub: View {
             .padding(.leading, 22)
             .padding(.trailing, 6)
         }
-        // 不匹配当前预览对象的动作不进菜单预览,但仍列在这里(置灰),否则用户找不到入口编辑。
+        // 不匹配当前预览对象的动作不进菜单预览,但仍列在这里,否则用户找不到入口编辑。
+        // 不置灰:灰色已用来表示「已关闭」,这里只靠分组标题区分。
         if !hidden.isEmpty {
             sep
             SectionCap(String(localized: "menu.previewHiddenActions"), hint: String(localized: "menu.previewHiddenActionsHint"))
             ForEach(hidden) { action in
                 actionRow(action, sub: false)
-                    .opacity(selection == .ownAction(action.id) ? 1 : 0.55)
                     .help(matchResult(for: action).previewMessage ?? "")
             }
         }
